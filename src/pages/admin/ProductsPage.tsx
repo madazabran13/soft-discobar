@@ -5,11 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Plus, Trash2, Edit, Package, Search } from 'lucide-react';
 import { SortableHeader, useSortableData } from '@/components/SortableHeader';
+import { PaginationControls, usePagination } from '@/components/PaginationControls';
 
 interface Product {
   id: string;
@@ -18,37 +20,53 @@ interface Product {
   price: number;
   stock_quantity: number;
   category: string;
+  category_id: string | null;
   is_active: boolean;
+  categories?: { name: string } | null;
+}
+
+interface Category {
+  id: string;
+  name: string;
 }
 
 const ProductsPage = () => {
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [open, setOpen] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
-  const [form, setForm] = useState({ name: '', description: '', price: '', stock_quantity: '', category: 'General' });
+  const [form, setForm] = useState({ name: '', description: '', price: '', stock_quantity: '', category_id: '' });
   const [search, setSearch] = useState('');
 
   const fetchProducts = async () => {
-    const { data } = await supabase.from('products').select('*').order('name');
-    if (data) setProducts(data as Product[]);
+    const { data } = await supabase.from('products').select('*, categories(name)').order('name');
+    if (data) setProducts(data as any);
   };
 
-  useEffect(() => { fetchProducts(); }, []);
+  const fetchCategories = async () => {
+    const { data } = await supabase.from('categories').select('id, name').order('name');
+    if (data) setCategories(data);
+  };
+
+  useEffect(() => { fetchProducts(); fetchCategories(); }, []);
 
   const filtered = products.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
-    (p.category || '').toLowerCase().includes(search.toLowerCase())
+    (p.categories?.name || p.category || '').toLowerCase().includes(search.toLowerCase())
   );
   const { sorted, sort, toggleSort } = useSortableData(filtered);
+  const { paged, currentPage, totalItems, pageSize, setCurrentPage } = usePagination(sorted);
 
   const handleSave = async () => {
     if (!form.name.trim()) { toast.error('Nombre requerido'); return; }
+    const catName = categories.find(c => c.id === form.category_id)?.name || 'General';
     const payload = {
       name: form.name,
       description: form.description,
       price: parseFloat(form.price) || 0,
       stock_quantity: parseInt(form.stock_quantity) || 0,
-      category: form.category,
+      category: catName,
+      category_id: form.category_id || null,
     };
     if (editProduct) {
       const { error } = await supabase.from('products').update(payload).eq('id', editProduct.id);
@@ -68,12 +86,12 @@ const ProductsPage = () => {
   const closeDialog = () => {
     setOpen(false);
     setEditProduct(null);
-    setForm({ name: '', description: '', price: '', stock_quantity: '', category: 'General' });
+    setForm({ name: '', description: '', price: '', stock_quantity: '', category_id: '' });
   };
 
   const openEdit = (p: Product) => {
     setEditProduct(p);
-    setForm({ name: p.name, description: p.description || '', price: String(p.price), stock_quantity: String(p.stock_quantity), category: p.category || 'General' });
+    setForm({ name: p.name, description: p.description || '', price: String(p.price), stock_quantity: String(p.stock_quantity), category_id: p.category_id || '' });
     setOpen(true);
   };
 
@@ -94,7 +112,17 @@ const ProductsPage = () => {
                 <div><Label>Precio</Label><Input type="number" step="0.01" value={form.price} onChange={e => setForm({...form, price: e.target.value})} className="bg-secondary/50" /></div>
                 <div><Label>Stock</Label><Input type="number" value={form.stock_quantity} onChange={e => setForm({...form, stock_quantity: e.target.value})} className="bg-secondary/50" /></div>
               </div>
-              <div><Label>Categoría</Label><Input value={form.category} onChange={e => setForm({...form, category: e.target.value})} className="bg-secondary/50" /></div>
+              <div>
+                <Label>Categoría</Label>
+                <Select value={form.category_id} onValueChange={v => setForm({...form, category_id: v})}>
+                  <SelectTrigger className="bg-secondary/50"><SelectValue placeholder="Seleccionar categoría" /></SelectTrigger>
+                  <SelectContent>
+                    {categories.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <Button onClick={handleSave} className="w-full gradient-primary">Guardar</Button>
             </div>
           </DialogContent>
@@ -119,7 +147,7 @@ const ProductsPage = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sorted.map((p) => (
+              {paged.map((p) => (
                 <TableRow key={p.id} className="border-border">
                   <TableCell>
                     <div className="flex items-center gap-3">
@@ -132,7 +160,7 @@ const ProductsPage = () => {
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell><Badge variant="outline">{p.category}</Badge></TableCell>
+                  <TableCell><Badge variant="outline">{p.categories?.name || p.category}</Badge></TableCell>
                   <TableCell className="text-right font-medium">${p.price.toFixed(2)}</TableCell>
                   <TableCell className="text-right">
                     <Badge className={p.stock_quantity > 10 ? 'bg-success/20 text-success' : p.stock_quantity > 0 ? 'bg-warning/20 text-warning' : 'bg-destructive/20 text-destructive'}>
@@ -145,11 +173,12 @@ const ProductsPage = () => {
                   </TableCell>
                 </TableRow>
               ))}
-              {sorted.length === 0 && (
+              {paged.length === 0 && (
                 <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No hay productos</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
+          <PaginationControls currentPage={currentPage} totalItems={totalItems} pageSize={pageSize} onPageChange={setCurrentPage} />
         </CardContent>
       </Card>
     </div>
