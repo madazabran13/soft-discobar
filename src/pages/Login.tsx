@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,8 +24,15 @@ const Login = () => {
     setLoading(true);
     try {
       await signIn(email, password);
-      // Role-based redirect happens in App via useEffect
       toast.success('¡Bienvenido!');
+      // Wait briefly for role to load then redirect
+      const checkRole = () => {
+        const state = useAuthStore.getState();
+        if (state.role === 'admin') navigate('/admin');
+        else if (state.role === 'trabajador') navigate('/worker');
+        else setTimeout(checkRole, 200);
+      };
+      setTimeout(checkRole, 300);
     } catch (error: any) {
       toast.error(error.message || 'Error al iniciar sesión');
     } finally {
@@ -75,6 +82,11 @@ const Login = () => {
             <Button type="submit" className="w-full gradient-primary" disabled={loading}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Iniciar Sesión'}
             </Button>
+            <div className="text-center">
+              <Link to="/forgot-password" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                ¿Olvidaste tu contraseña?
+              </Link>
+            </div>
           </form>
         </CardContent>
       </Card>
