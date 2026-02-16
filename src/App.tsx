@@ -3,13 +3,16 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuthStore } from '@/stores/authStore';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { WorkerLayout } from '@/components/layout/WorkerLayout';
+import { useOrderNotifications } from '@/hooks/useOrderNotifications';
 
 import Login from './pages/Login';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/admin/Dashboard';
 import TablesPage from './pages/admin/TablesPage';
 import OrdersPage from './pages/admin/OrdersPage';
@@ -35,7 +38,8 @@ const AuthRedirect = () => {
 
 const AppContent = () => {
   const { initialize } = useAuthStore();
-  
+  useOrderNotifications();
+
   useEffect(() => {
     initialize();
   }, [initialize]);
@@ -44,6 +48,8 @@ const AppContent = () => {
     <Routes>
       <Route path="/" element={<AuthRedirect />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* Admin routes */}
       <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout /></ProtectedRoute>}>
