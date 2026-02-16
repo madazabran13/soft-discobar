@@ -36,25 +36,16 @@ const UsersPage = () => {
       return;
     }
 
-    // Sign up user via auth
-    const { data: authData, error: authErr } = await supabase.auth.signUp({
-      email: form.email,
-      password: form.password,
-      options: { data: { full_name: form.full_name } },
+    const { data, error } = await supabase.functions.invoke('create-user', {
+      body: { email: form.email, password: form.password, full_name: form.full_name, role: form.role },
     });
-    if (authErr || !authData.user) {
-      toast.error(authErr?.message || 'Error al crear usuario');
+
+    if (error || data?.error) {
+      toast.error(data?.error || error?.message || 'Error al crear usuario');
       return;
     }
 
-    // Assign role
-    const { error: roleErr } = await supabase.from('user_roles').insert({
-      user_id: authData.user.id,
-      role: form.role as any,
-    });
-    if (roleErr) toast.error('Usuario creado pero error asignando rol: ' + roleErr.message);
-    else toast.success('Usuario creado exitosamente');
-
+    toast.success('Usuario creado y confirmado exitosamente');
     setOpen(false);
     setForm({ email: '', password: '', full_name: '', role: 'trabajador' });
     fetchUsers();
