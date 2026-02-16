@@ -17,6 +17,7 @@ import Dashboard from './pages/admin/Dashboard';
 import TablesPage from './pages/admin/TablesPage';
 import OrdersPage from './pages/admin/OrdersPage';
 import ProductsPage from './pages/admin/ProductsPage';
+import CategoriesPage from './pages/admin/CategoriesPage';
 import UsersPage from './pages/admin/UsersPage';
 import SalesPage from './pages/admin/SalesPage';
 import WorkerTables from './pages/worker/WorkerTables';
@@ -57,6 +58,7 @@ const AppContent = () => {
         <Route path="mesas" element={<TablesPage />} />
         <Route path="pedidos" element={<OrdersPage />} />
         <Route path="productos" element={<ProductsPage />} />
+        <Route path="categorias" element={<CategoriesPage />} />
         <Route path="usuarios" element={<UsersPage />} />
         <Route path="ventas" element={<SalesPage />} />
       </Route>

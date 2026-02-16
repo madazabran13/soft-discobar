@@ -7,8 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DollarSign, Download, Search, FileText, FileSpreadsheet } from 'lucide-react';
+import { DollarSign, Search, FileText, FileSpreadsheet } from 'lucide-react';
 import { SortableHeader, useSortableData } from '@/components/SortableHeader';
+import { PaginationControls, usePagination } from '@/components/PaginationControls';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -28,20 +29,10 @@ function getDateRange(period: FilterPeriod): { start: string; end: string } {
   const now = new Date();
   const end = now.toISOString().split('T')[0];
   switch (period) {
-    case 'today':
-      return { start: end, end };
-    case 'week': {
-      const d = new Date(now);
-      d.setDate(d.getDate() - 7);
-      return { start: d.toISOString().split('T')[0], end };
-    }
-    case 'month': {
-      const d = new Date(now);
-      d.setMonth(d.getMonth() - 1);
-      return { start: d.toISOString().split('T')[0], end };
-    }
-    default:
-      return { start: end, end };
+    case 'today': return { start: end, end };
+    case 'week': { const d = new Date(now); d.setDate(d.getDate() - 7); return { start: d.toISOString().split('T')[0], end }; }
+    case 'month': { const d = new Date(now); d.setMonth(d.getMonth() - 1); return { start: d.toISOString().split('T')[0], end }; }
+    default: return { start: end, end };
   }
 }
 
@@ -57,7 +48,7 @@ const SalesPage = () => {
   const fetchSales = async (s: string, e: string) => {
     const { data } = await supabase
       .from('sales')
-      .select('*, orders(client_name, tables(number)), profiles!sales_processed_by_fkey(full_name)')
+      .select('*, orders(client_name, tables(number)), profiles(full_name)')
       .gte('created_at', s)
       .lte('created_at', e + 'T23:59:59')
       .order('created_at', { ascending: false });
@@ -86,6 +77,7 @@ const SalesPage = () => {
     String(s.orders?.tables?.number || '').includes(search)
   );
   const { sorted, sort, toggleSort } = useSortableData(filtered);
+  const { paged, currentPage, totalItems, pageSize, setCurrentPage } = usePagination(sorted);
 
   const totalRevenue = filtered.reduce((sum, s) => sum + Number(s.amount), 0);
 
@@ -96,7 +88,6 @@ const SalesPage = () => {
     doc.setFontSize(10);
     doc.text(`Periodo: ${startDate} — ${endDate}`, 14, 30);
     doc.text(`Total: $${totalRevenue.toFixed(2)} | ${filtered.length} transacciones`, 14, 36);
-
     autoTable(doc, {
       startY: 42,
       head: [['Fecha', 'Mesa', 'Cliente', 'Método', 'Procesado por', 'Monto']],
@@ -111,9 +102,7 @@ const SalesPage = () => {
       styles: { fontSize: 8 },
       headStyles: { fillColor: [100, 0, 200] },
     });
-
     doc.save(`ventas_${startDate}_${endDate}.pdf`);
-    return;
   };
 
   const exportExcel = () => {
@@ -185,15 +174,15 @@ const SalesPage = () => {
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
                 <SortableHeader label="Fecha" sortKey="created_at" currentSort={sort} onSort={toggleSort} />
-                <SortableHeader label="Mesa" sortKey="orders.tables.number" currentSort={sort} onSort={toggleSort} />
-                <SortableHeader label="Cliente" sortKey="orders.client_name" currentSort={sort} onSort={toggleSort} />
+                <SortableHeader label="Mesa" sortKey="orders" currentSort={sort} onSort={toggleSort} />
+                <SortableHeader label="Cliente" sortKey="client_name" currentSort={sort} onSort={toggleSort} />
                 <SortableHeader label="Método" sortKey="payment_method" currentSort={sort} onSort={toggleSort} />
-                <SortableHeader label="Procesado por" sortKey="profiles.full_name" currentSort={sort} onSort={toggleSort} />
+                <SortableHeader label="Procesado por" sortKey="profiles" currentSort={sort} onSort={toggleSort} />
                 <SortableHeader label="Monto" sortKey="amount" currentSort={sort} onSort={toggleSort} className="text-right" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sorted.map((s) => (
+              {paged.map((s) => (
                 <TableRow key={s.id} className="border-border">
                   <TableCell className="text-sm">{new Date(s.created_at).toLocaleString('es')}</TableCell>
                   <TableCell>#{s.orders?.tables?.number}</TableCell>
@@ -203,11 +192,12 @@ const SalesPage = () => {
                   <TableCell className="text-right font-medium">${Number(s.amount).toFixed(2)}</TableCell>
                 </TableRow>
               ))}
-              {sorted.length === 0 && (
+              {paged.length === 0 && (
                 <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No hay ventas en este periodo</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
+          <PaginationControls currentPage={currentPage} totalItems={totalItems} pageSize={pageSize} onPageChange={setCurrentPage} />
         </CardContent>
       </Card>
     </div>

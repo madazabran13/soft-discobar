@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { Eye, CreditCard, Search } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { SortableHeader, useSortableData } from '@/components/SortableHeader';
+import { PaginationControls, usePagination } from '@/components/PaginationControls';
 
 interface Order {
   id: string;
@@ -51,7 +52,7 @@ const OrdersPage = () => {
   const fetchOrders = async () => {
     const { data } = await supabase
       .from('orders')
-      .select('*, tables(number, name), profiles!orders_worker_id_fkey(full_name)')
+      .select('*, tables(number, name), profiles(full_name)')
       .order('created_at', { ascending: false });
     if (data) setOrders(data as any);
   };
@@ -69,6 +70,7 @@ const OrdersPage = () => {
     String(o.tables?.number || '').includes(search)
   );
   const { sorted, sort, toggleSort } = useSortableData(filtered);
+  const { paged, currentPage, totalItems, pageSize, setCurrentPage } = usePagination(sorted);
 
   const viewDetails = async (order: Order) => {
     setSelectedOrder(order);
@@ -106,16 +108,16 @@ const OrdersPage = () => {
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
-                <SortableHeader label="Mesa" sortKey="tables.number" currentSort={sort} onSort={toggleSort} />
+                <SortableHeader label="Mesa" sortKey="tables" currentSort={sort} onSort={toggleSort} />
                 <SortableHeader label="Cliente" sortKey="client_name" currentSort={sort} onSort={toggleSort} />
-                <SortableHeader label="Trabajador" sortKey="profiles.full_name" currentSort={sort} onSort={toggleSort} />
+                <SortableHeader label="Trabajador" sortKey="profiles" currentSort={sort} onSort={toggleSort} />
                 <SortableHeader label="Estado" sortKey="status" currentSort={sort} onSort={toggleSort} />
                 <SortableHeader label="Total" sortKey="total_amount" currentSort={sort} onSort={toggleSort} className="text-right" />
                 <SortableHeader label="Acciones" sortKey="" currentSort={null} onSort={() => {}} className="text-right" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sorted.map((o) => (
+              {paged.map((o) => (
                 <TableRow key={o.id} className="border-border">
                   <TableCell>#{o.tables?.number}</TableCell>
                   <TableCell>{o.client_name}</TableCell>
@@ -130,22 +132,22 @@ const OrdersPage = () => {
                   </TableCell>
                 </TableRow>
               ))}
-              {sorted.length === 0 && (
+              {paged.length === 0 && (
                 <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No hay pedidos</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
+          <PaginationControls currentPage={currentPage} totalItems={totalItems} pageSize={pageSize} onPageChange={setCurrentPage} />
         </CardContent>
       </Card>
 
-      {/* Order detail dialog */}
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
         <DialogContent className="glass">
           <DialogHeader><DialogTitle>Detalle del Pedido</DialogTitle></DialogHeader>
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">Cliente: <span className="text-foreground">{selectedOrder?.client_name}</span></p>
             <Table>
-              <TableHeader><TableRow className="border-border"><SortableHeader label="Producto" sortKey="" currentSort={null} onSort={() => {}} /><SortableHeader label="Cant." sortKey="" currentSort={null} onSort={() => {}} className="text-right" /><SortableHeader label="Precio" sortKey="" currentSort={null} onSort={() => {}} className="text-right" /><SortableHeader label="Subtotal" sortKey="" currentSort={null} onSort={() => {}} className="text-right" /></TableRow></TableHeader>
+              <TableHeader><TableRow className="border-border"><TableCell className="font-medium">Producto</TableCell><TableCell className="font-medium text-right">Cant.</TableCell><TableCell className="font-medium text-right">Precio</TableCell><TableCell className="font-medium text-right">Subtotal</TableCell></TableRow></TableHeader>
               <TableBody>
                 {details.map(d => (
                   <TableRow key={d.id} className="border-border">
@@ -162,7 +164,6 @@ const OrdersPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Billing dialog */}
       <Dialog open={!!billingOrder} onOpenChange={() => setBillingOrder(null)}>
         <DialogContent className="glass">
           <DialogHeader><DialogTitle>Facturar Pedido</DialogTitle></DialogHeader>

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
   Wine, LayoutDashboard, UtensilsCrossed, Package, Users,
-  Receipt, BarChart3, LogOut, Menu, X, ChevronRight
+  Receipt, BarChart3, LogOut, Menu, X, ChevronRight, Tag
 } from 'lucide-react';
 
 const navItems = [
@@ -13,6 +13,7 @@ const navItems = [
   { path: '/admin/mesas', label: 'Mesas', icon: UtensilsCrossed },
   { path: '/admin/pedidos', label: 'Pedidos', icon: Receipt },
   { path: '/admin/productos', label: 'Productos', icon: Package },
+  { path: '/admin/categorias', label: 'Categorías', icon: Tag },
   { path: '/admin/usuarios', label: 'Usuarios', icon: Users },
   { path: '/admin/ventas', label: 'Ventas', icon: BarChart3 },
 ];

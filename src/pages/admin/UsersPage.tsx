@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Plus, Trash2, Users, Edit, Search } from 'lucide-react';
 import { SortableHeader, useSortableData } from '@/components/SortableHeader';
+import { PaginationControls, usePagination } from '@/components/PaginationControls';
 
 interface UserProfile {
   id: string;
@@ -38,6 +39,7 @@ const UsersPage = () => {
     (u.email || '').toLowerCase().includes(search.toLowerCase())
   );
   const { sorted, sort, toggleSort } = useSortableData(filtered);
+  const { paged, currentPage, totalItems, pageSize, setCurrentPage } = usePagination(sorted);
 
   const handleCreate = async () => {
     if (!form.email || !form.password || !form.full_name) {
@@ -110,7 +112,7 @@ const UsersPage = () => {
             <div className="space-y-4">
               <div><Label>Nombre Completo</Label><Input value={form.full_name} onChange={e => setForm({...form, full_name: e.target.value})} className="bg-secondary/50" /></div>
               <div><Label>Email</Label><Input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} className="bg-secondary/50" /></div>
-              <div><Label>{editUser ? 'Nueva Contraseña (dejar vacío para mantener)' : 'Contraseña'}</Label><Input type="password" value={form.password} onChange={e => setForm({...form, password: e.target.value})} className="bg-secondary/50" /></div>
+              <div><Label>{editUser ? 'Nueva Contraseña (vacío = mantener)' : 'Contraseña'}</Label><Input type="password" value={form.password} onChange={e => setForm({...form, password: e.target.value})} className="bg-secondary/50" /></div>
               <div>
                 <Label>Rol</Label>
                 <Select value={form.role} onValueChange={v => setForm({...form, role: v})}>
@@ -146,7 +148,7 @@ const UsersPage = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sorted.map((u) => (
+              {paged.map((u) => (
                 <TableRow key={u.id} className="border-border">
                   <TableCell>
                     <div className="flex items-center gap-3">
@@ -168,11 +170,12 @@ const UsersPage = () => {
                   </TableCell>
                 </TableRow>
               ))}
-              {sorted.length === 0 && (
+              {paged.length === 0 && (
                 <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">No hay usuarios</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
+          <PaginationControls currentPage={currentPage} totalItems={totalItems} pageSize={pageSize} onPageChange={setCurrentPage} />
         </CardContent>
       </Card>
     </div>
