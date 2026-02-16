@@ -15,7 +15,6 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Verify caller is admin
     const authHeader = req.headers.get("Authorization")!;
     const callerClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
@@ -25,41 +24,50 @@ serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // Check caller is admin
     const { data: roleData } = await adminClient
       .from("user_roles")
       .select("role")
       .eq("user_id", caller.id)
       .eq("role", "admin")
       .maybeSingle();
-
     if (!roleData) throw new Error("No autorizado");
 
-    const { email, password, full_name, role } = await req.json();
+    const { action, user_id, email, password, full_name, role } = await req.json();
 
-    // Create user with auto-confirm
-    const { data: newUser, error: createErr } = await adminClient.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { full_name },
-    });
-
-    if (createErr || !newUser.user) {
-      throw new Error(createErr?.message || "Error creando usuario");
+    if (action === "delete") {
+      const { error } = await adminClient.auth.admin.deleteUser(user_id);
+      if (error) throw new Error(error.message);
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // Assign role
-    const { error: roleErr } = await adminClient.from("user_roles").insert({
-      user_id: newUser.user.id,
-      role,
-    });
+    if (action === "update") {
+      const updatePayload: any = {};
+      if (email) updatePayload.email = email;
+      if (password) updatePayload.password = password;
+      if (full_name !== undefined) updatePayload.user_metadata = { full_name };
 
-    if (roleErr) throw new Error("Usuario creado pero error asignando rol: " + roleErr.message);
+      const { error: authErr } = await adminClient.auth.admin.updateUserById(user_id, updatePayload);
+      if (authErr) throw new Error(authErr.message);
 
-    return new Response(JSON.stringify({ user: newUser.user }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+      // Update profile
+      if (full_name !== undefined) {
+        await adminClient.from("profiles").update({ full_name }).eq("id", user_id);
+      }
+
+      // Update role if provided
+      if (role) {
+        await adminClient.from("user_roles").delete().eq("user_id", user_id);
+        await adminClient.from("user_roles").insert({ user_id, role });
+      }
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    throw new Error("Acción no válida");
   } catch (error) {
     return new Response(JSON.stringify({ error: error.message }), {
       status: 400,
