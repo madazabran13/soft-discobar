@@ -5,10 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, Trash2, Edit } from 'lucide-react';
+import { Plus, Trash2, Edit, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type TableRow = {
@@ -30,6 +29,7 @@ const TablesPage = () => {
   const [open, setOpen] = useState(false);
   const [editTable, setEditTable] = useState<TableRow | null>(null);
   const [form, setForm] = useState({ number: '', name: '', capacity: '4' });
+  const [search, setSearch] = useState('');
 
   const fetchTables = async () => {
     const { data } = await supabase.from('tables').select('*').order('number');
@@ -42,11 +42,16 @@ const TablesPage = () => {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
+  const filtered = tables.filter(t =>
+    String(t.number).includes(search) ||
+    (t.name || '').toLowerCase().includes(search.toLowerCase()) ||
+    t.status.toLowerCase().includes(search.toLowerCase())
+  );
+
   const handleSave = async () => {
     const num = parseInt(form.number);
     const cap = parseInt(form.capacity);
     if (!num || !cap) { toast.error('Completa los campos'); return; }
-
     if (editTable) {
       const { error } = await supabase.from('tables').update({ number: num, name: form.name, capacity: cap }).eq('id', editTable.id);
       if (error) toast.error(error.message); else toast.success('Mesa actualizada');
@@ -90,8 +95,13 @@ const TablesPage = () => {
         </Dialog>
       </div>
 
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input placeholder="Buscar mesa..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 bg-secondary/50" />
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-        {tables.map((t) => (
+        {filtered.map((t) => (
           <Card key={t.id} className="glass group relative overflow-hidden">
             <CardContent className="p-4">
               <div className="flex items-start justify-between">

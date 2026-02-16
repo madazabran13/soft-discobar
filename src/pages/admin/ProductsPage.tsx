@@ -5,10 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, Trash2, Edit, Package } from 'lucide-react';
+import { Plus, Trash2, Edit, Package, Search } from 'lucide-react';
+import { SortableHeader, useSortableData } from '@/components/SortableHeader';
 
 interface Product {
   id: string;
@@ -25,6 +26,7 @@ const ProductsPage = () => {
   const [open, setOpen] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [form, setForm] = useState({ name: '', description: '', price: '', stock_quantity: '', category: 'General' });
+  const [search, setSearch] = useState('');
 
   const fetchProducts = async () => {
     const { data } = await supabase.from('products').select('*').order('name');
@@ -32,6 +34,12 @@ const ProductsPage = () => {
   };
 
   useEffect(() => { fetchProducts(); }, []);
+
+  const filtered = products.filter(p =>
+    p.name.toLowerCase().includes(search.toLowerCase()) ||
+    (p.category || '').toLowerCase().includes(search.toLowerCase())
+  );
+  const { sorted, sort, toggleSort } = useSortableData(filtered);
 
   const handleSave = async () => {
     if (!form.name.trim()) { toast.error('Nombre requerido'); return; }
@@ -42,7 +50,6 @@ const ProductsPage = () => {
       stock_quantity: parseInt(form.stock_quantity) || 0,
       category: form.category,
     };
-
     if (editProduct) {
       const { error } = await supabase.from('products').update(payload).eq('id', editProduct.id);
       if (error) toast.error(error.message); else { toast.success('Producto actualizado'); fetchProducts(); }
@@ -94,20 +101,25 @@ const ProductsPage = () => {
         </Dialog>
       </div>
 
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input placeholder="Buscar producto..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 bg-secondary/50" />
+      </div>
+
       <Card className="glass overflow-hidden">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
-                <TableHead>Producto</TableHead>
-                <TableHead>Categoría</TableHead>
-                <TableHead className="text-right">Precio</TableHead>
-                <TableHead className="text-right">Stock</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
+                <SortableHeader label="Producto" sortKey="name" currentSort={sort} onSort={toggleSort} />
+                <SortableHeader label="Categoría" sortKey="category" currentSort={sort} onSort={toggleSort} />
+                <SortableHeader label="Precio" sortKey="price" currentSort={sort} onSort={toggleSort} className="text-right" />
+                <SortableHeader label="Stock" sortKey="stock_quantity" currentSort={sort} onSort={toggleSort} className="text-right" />
+                <SortableHeader label="Acciones" sortKey="" currentSort={null} onSort={() => {}} className="text-right" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {products.map((p) => (
+              {sorted.map((p) => (
                 <TableRow key={p.id} className="border-border">
                   <TableCell>
                     <div className="flex items-center gap-3">
@@ -133,7 +145,7 @@ const ProductsPage = () => {
                   </TableCell>
                 </TableRow>
               ))}
-              {products.length === 0 && (
+              {sorted.length === 0 && (
                 <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No hay productos</TableCell></TableRow>
               )}
             </TableBody>

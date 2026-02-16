@@ -2,13 +2,15 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Eye, CreditCard } from 'lucide-react';
+import { Eye, CreditCard, Search } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
+import { SortableHeader, useSortableData } from '@/components/SortableHeader';
 
 interface Order {
   id: string;
@@ -43,6 +45,7 @@ const OrdersPage = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [billingOrder, setBillingOrder] = useState<Order | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<string>('efectivo');
+  const [search, setSearch] = useState('');
   const { user } = useAuthStore();
 
   const fetchOrders = async () => {
@@ -59,6 +62,14 @@ const OrdersPage = () => {
     return () => { supabase.removeChannel(ch); };
   }, []);
 
+  const filtered = orders.filter(o =>
+    (o.client_name || '').toLowerCase().includes(search.toLowerCase()) ||
+    (o.profiles?.full_name || '').toLowerCase().includes(search.toLowerCase()) ||
+    o.status.toLowerCase().includes(search.toLowerCase()) ||
+    String(o.tables?.number || '').includes(search)
+  );
+  const { sorted, sort, toggleSort } = useSortableData(filtered);
+
   const viewDetails = async (order: Order) => {
     setSelectedOrder(order);
     const { data } = await supabase.from('order_details').select('*, products(name)').eq('order_id', order.id);
@@ -67,8 +78,6 @@ const OrdersPage = () => {
 
   const handleBill = async () => {
     if (!billingOrder || !user) return;
-
-    // Create sale
     const { error: saleErr } = await supabase.from('sales').insert({
       order_id: billingOrder.id,
       amount: billingOrder.total_amount,
@@ -76,13 +85,8 @@ const OrdersPage = () => {
       processed_by: user.id,
     });
     if (saleErr) { toast.error(saleErr.message); return; }
-
-    // Update order status
     await supabase.from('orders').update({ status: 'facturado' }).eq('id', billingOrder.id);
-
-    // Free the table
     await supabase.from('tables').update({ status: 'libre' }).eq('id', billingOrder.table_id);
-
     toast.success('Pedido facturado exitosamente');
     setBillingOrder(null);
     fetchOrders();
@@ -92,21 +96,26 @@ const OrdersPage = () => {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Pedidos</h1>
 
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input placeholder="Buscar pedido..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 bg-secondary/50" />
+      </div>
+
       <Card className="glass overflow-hidden">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
-                <TableHead>Mesa</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Trabajador</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
+                <SortableHeader label="Mesa" sortKey="tables.number" currentSort={sort} onSort={toggleSort} />
+                <SortableHeader label="Cliente" sortKey="client_name" currentSort={sort} onSort={toggleSort} />
+                <SortableHeader label="Trabajador" sortKey="profiles.full_name" currentSort={sort} onSort={toggleSort} />
+                <SortableHeader label="Estado" sortKey="status" currentSort={sort} onSort={toggleSort} />
+                <SortableHeader label="Total" sortKey="total_amount" currentSort={sort} onSort={toggleSort} className="text-right" />
+                <SortableHeader label="Acciones" sortKey="" currentSort={null} onSort={() => {}} className="text-right" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {orders.map((o) => (
+              {sorted.map((o) => (
                 <TableRow key={o.id} className="border-border">
                   <TableCell>#{o.tables?.number}</TableCell>
                   <TableCell>{o.client_name}</TableCell>
@@ -121,7 +130,7 @@ const OrdersPage = () => {
                   </TableCell>
                 </TableRow>
               ))}
-              {orders.length === 0 && (
+              {sorted.length === 0 && (
                 <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No hay pedidos</TableCell></TableRow>
               )}
             </TableBody>
@@ -136,7 +145,7 @@ const OrdersPage = () => {
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">Cliente: <span className="text-foreground">{selectedOrder?.client_name}</span></p>
             <Table>
-              <TableHeader><TableRow className="border-border"><TableHead>Producto</TableHead><TableHead className="text-right">Cant.</TableHead><TableHead className="text-right">Precio</TableHead><TableHead className="text-right">Subtotal</TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow className="border-border"><SortableHeader label="Producto" sortKey="" currentSort={null} onSort={() => {}} /><SortableHeader label="Cant." sortKey="" currentSort={null} onSort={() => {}} className="text-right" /><SortableHeader label="Precio" sortKey="" currentSort={null} onSort={() => {}} className="text-right" /><SortableHeader label="Subtotal" sortKey="" currentSort={null} onSort={() => {}} className="text-right" /></TableRow></TableHeader>
               <TableBody>
                 {details.map(d => (
                   <TableRow key={d.id} className="border-border">
