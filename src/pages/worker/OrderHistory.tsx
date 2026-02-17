@@ -3,6 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuthStore } from '@/stores/authStore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { toast } from 'sonner';
+import { XCircle } from 'lucide-react';
 
 interface Order {
   id: string;
@@ -22,20 +26,31 @@ const statusColors: Record<string, string> = {
 
 const OrderHistory = () => {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [cancelOrder, setCancelOrder] = useState<Order | null>(null);
   const { user } = useAuthStore();
 
-  useEffect(() => {
+  const fetchOrders = async () => {
     if (!user) return;
-    const fetch = async () => {
-      const { data } = await supabase
-        .from('orders')
-        .select('*, tables(number)')
-        .eq('worker_id', user.id)
-        .order('created_at', { ascending: false });
-      if (data) setOrders(data as any);
-    };
-    fetch();
+    const { data } = await supabase
+      .from('orders')
+      .select('*, tables(number)')
+      .eq('worker_id', user.id)
+      .order('created_at', { ascending: false });
+    if (data) setOrders(data as any);
+  };
+
+  useEffect(() => {
+    fetchOrders();
   }, [user]);
+
+  const confirmCancel = async () => {
+    if (!cancelOrder) return;
+    const { error } = await supabase.from('orders').update({ status: 'cancelado' }).eq('id', cancelOrder.id);
+    if (error) { toast.error(error.message); setCancelOrder(null); return; }
+    toast.success('Pedido cancelado' + (cancelOrder.status === 'confirmado' ? ' y stock devuelto' : ''));
+    setCancelOrder(null);
+    fetchOrders();
+  };
 
   return (
     <div className="space-y-4">
@@ -47,14 +62,40 @@ const OrderHistory = () => {
               <p className="font-medium">Mesa #{o.tables?.number} — {o.client_name}</p>
               <p className="text-xs text-muted-foreground">{new Date(o.created_at).toLocaleString('es')}</p>
             </div>
-            <div className="text-right">
-              <p className="font-bold">${Number(o.total_amount).toFixed(2)}</p>
-              <Badge className={statusColors[o.status]}>{o.status}</Badge>
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                <p className="font-bold">${Number(o.total_amount).toFixed(2)}</p>
+                <Badge className={statusColors[o.status]}>{o.status}</Badge>
+              </div>
+              {(o.status === 'pendiente' || o.status === 'confirmado') && (
+                <Button size="icon" variant="ghost" className="text-destructive shrink-0" onClick={() => setCancelOrder(o)}>
+                  <XCircle className="h-5 w-5" />
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
       ))}
       {orders.length === 0 && <p className="text-center text-muted-foreground py-10">No hay pedidos aún</p>}
+
+      <AlertDialog open={!!cancelOrder} onOpenChange={() => setCancelOrder(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Cancelar este pedido?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Mesa <strong>#{cancelOrder?.tables?.number}</strong> — {cancelOrder?.client_name}
+              {cancelOrder?.status === 'confirmado' && '. El stock será devuelto automáticamente.'}
+              {' '}Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No, volver</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmCancel} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Sí, cancelar pedido
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
