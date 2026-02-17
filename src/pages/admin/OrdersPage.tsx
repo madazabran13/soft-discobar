@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Eye, CreditCard, Search } from 'lucide-react';
+import { Eye, CreditCard, Search, XCircle } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { SortableHeader, useSortableData } from '@/components/SortableHeader';
 import { PaginationControls, usePagination } from '@/components/PaginationControls';
@@ -78,6 +78,13 @@ const OrdersPage = () => {
     if (data) setDetails(data as any);
   };
 
+  const handleCancel = async (order: Order) => {
+    const { error } = await supabase.from('orders').update({ status: 'cancelado' }).eq('id', order.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Pedido cancelado' + (order.status === 'confirmado' ? ' y stock devuelto' : ''));
+    fetchOrders();
+  };
+
   const handleBill = async () => {
     if (!billingOrder || !user) return;
     const { error: saleErr } = await supabase.from('sales').insert({
@@ -128,6 +135,9 @@ const OrdersPage = () => {
                     <Button size="sm" variant="ghost" onClick={() => viewDetails(o)}><Eye className="h-3 w-3" /></Button>
                     {o.status === 'confirmado' && (
                       <Button size="sm" variant="ghost" className="text-success" onClick={() => setBillingOrder(o)}><CreditCard className="h-3 w-3" /></Button>
+                    )}
+                    {(o.status === 'pendiente' || o.status === 'confirmado') && (
+                      <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleCancel(o)}><XCircle className="h-3 w-3" /></Button>
                     )}
                   </TableCell>
                 </TableRow>
