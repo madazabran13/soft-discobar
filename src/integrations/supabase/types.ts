@@ -343,6 +343,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      deduct_stock_for_addition: {
+        Args: { p_items: Json; p_order_id: string; p_worker_id: string }
+        Returns: undefined
+      }
       get_my_role: { Args: never; Returns: string }
       has_role: {
         Args: {
