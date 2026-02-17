@@ -78,11 +78,25 @@ const NewOrder = () => {
     init();
   }, [tableId]);
 
+  // Calculate available stock considering what was already ordered for this table
+  const getAvailableStock = (product: Product) => {
+    const alreadyOrdered = existingDetails
+      .filter(d => d.product?.id === product.id)
+      .reduce((sum, d) => sum + d.quantity, 0);
+    // Stock in DB already reflects previous deductions, so full stock_quantity is available
+    return product.stock_quantity;
+  };
+
   const addToCart = (product: Product) => {
     setCart(prev => {
       const existing = prev.find(i => i.product.id === product.id);
+      const available = getAvailableStock(product);
+      const currentInCart = existing?.quantity || 0;
+      if (currentInCart >= available) {
+        toast.error(`Sin stock suficiente. Disponible: ${available}`);
+        return prev;
+      }
       if (existing) {
-        if (existing.quantity >= product.stock_quantity) { toast.error('Sin stock suficiente'); return prev; }
         return prev.map(i => i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
       }
       return [...prev, { product, quantity: 1 }];
@@ -94,7 +108,8 @@ const NewOrder = () => {
       if (i.product.id !== productId) return i;
       const newQty = i.quantity + delta;
       if (newQty <= 0) return i;
-      if (newQty > i.product.stock_quantity) { toast.error('Sin stock'); return i; }
+      const available = getAvailableStock(i.product);
+      if (newQty > available) { toast.error(`Sin stock. Disponible: ${available}`); return i; }
       return { ...i, quantity: newQty };
     }));
   };
@@ -330,7 +345,9 @@ const NewOrder = () => {
                   <p className="font-medium text-sm leading-tight line-clamp-2">{p.name}</p>
                   <div className="flex items-end justify-between mt-auto pt-1">
                     <span className="text-lg font-bold text-primary">${p.price.toFixed(2)}</span>
-                    <span className="text-[10px] text-muted-foreground">Stock: {p.stock_quantity}</span>
+                    <span className={`text-[10px] ${getAvailableStock(p) - getCartQty(p.id) <= 0 ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+                      Stock: {getAvailableStock(p) - getCartQty(p.id)}
+                    </span>
                   </div>
                 </CardContent>
               </Card>
