@@ -23,6 +23,7 @@ import SalesPage from './pages/admin/SalesPage';
 import WorkerTables from './pages/worker/WorkerTables';
 import NewOrder from './pages/worker/NewOrder';
 import OrderHistory from './pages/worker/OrderHistory';
+import WorkerProfile from './pages/worker/WorkerProfile';
 import NotFound from './pages/NotFound';
 
 const queryClient = new QueryClient();
@@ -68,6 +69,7 @@ const AppContent = () => {
         <Route index element={<WorkerTables />} />
         <Route path="pedido" element={<NewOrder />} />
         <Route path="historial" element={<OrderHistory />} />
+        <Route path="perfil" element={<WorkerProfile />} />
       </Route>
 
       <Route path="*" element={<NotFound />} />
