@@ -9,25 +9,32 @@ export const useOrderNotifications = () => {
   const lowStockThreshold = useSettingsStore((s) => s.lowStockThreshold);
 
   useEffect(() => {
-    if (role !== 'admin') return;
+    if (!role) return;
 
-    const ordersChannel = supabase
-      .channel('admin-order-notifications')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'orders' },
-        (payload) => {
-          const order = payload.new as any;
-          toast.info('🆕 Nuevo pedido creado', {
-            description: `Mesa asignada — Total: $${Number(order.total_amount).toFixed(2)}`,
-            duration: 8000,
-          });
-        }
-      )
-      .subscribe();
+    const channels: ReturnType<typeof supabase.channel>[] = [];
 
+    // Admin-only: new order notifications
+    if (role === 'admin') {
+      const ordersChannel = supabase
+        .channel('admin-order-notifications')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'orders' },
+          (payload) => {
+            const order = payload.new as any;
+            toast.info('🆕 Nuevo pedido creado', {
+              description: `Mesa asignada — Total: $${Number(order.total_amount).toFixed(2)}`,
+              duration: 8000,
+            });
+          }
+        )
+        .subscribe();
+      channels.push(ordersChannel);
+    }
+
+    // Both roles: stock low / out-of-stock notifications
     const stockChannel = supabase
-      .channel('admin-stock-notifications')
+      .channel('stock-notifications')
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'products' },
@@ -53,10 +60,10 @@ export const useOrderNotifications = () => {
         }
       )
       .subscribe();
+    channels.push(stockChannel);
 
     return () => {
-      supabase.removeChannel(ordersChannel);
-      supabase.removeChannel(stockChannel);
+      channels.forEach(ch => supabase.removeChannel(ch));
     };
   }, [role, lowStockThreshold]);
 };
