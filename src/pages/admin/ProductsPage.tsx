@@ -48,7 +48,19 @@ const ProductsPage = () => {
     if (data) setCategories(data);
   };
 
-  useEffect(() => { fetchProducts(); fetchCategories(); }, []);
+  useEffect(() => {
+    fetchProducts();
+    fetchCategories();
+
+    const channel = supabase
+      .channel('products-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
+        fetchProducts();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   const filtered = products.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
