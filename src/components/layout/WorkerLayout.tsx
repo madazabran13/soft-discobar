@@ -2,12 +2,13 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Wine, UtensilsCrossed, Receipt, ClipboardList, LogOut } from 'lucide-react';
+import { Wine, UtensilsCrossed, Receipt, ClipboardList, LogOut, UserCog } from 'lucide-react';
 
 const navItems = [
   { path: '/worker', label: 'Mesas', icon: UtensilsCrossed },
   { path: '/worker/pedido', label: 'Nuevo Pedido', icon: Receipt },
   { path: '/worker/historial', label: 'Historial', icon: ClipboardList },
+  { path: '/worker/perfil', label: 'Perfil', icon: UserCog },
 ];
 
 export const WorkerLayout = () => {

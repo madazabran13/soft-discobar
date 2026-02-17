@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Eye, CreditCard, Search, XCircle } from 'lucide-react';
@@ -47,6 +48,7 @@ const OrdersPage = () => {
   const [billingOrder, setBillingOrder] = useState<Order | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<string>('efectivo');
   const [search, setSearch] = useState('');
+  const [cancelOrder, setCancelOrder] = useState<Order | null>(null);
   const { user } = useAuthStore();
 
   const fetchOrders = async () => {
@@ -78,10 +80,12 @@ const OrdersPage = () => {
     if (data) setDetails(data as any);
   };
 
-  const handleCancel = async (order: Order) => {
-    const { error } = await supabase.from('orders').update({ status: 'cancelado' }).eq('id', order.id);
-    if (error) { toast.error(error.message); return; }
-    toast.success('Pedido cancelado' + (order.status === 'confirmado' ? ' y stock devuelto' : ''));
+  const confirmCancel = async () => {
+    if (!cancelOrder) return;
+    const { error } = await supabase.from('orders').update({ status: 'cancelado' }).eq('id', cancelOrder.id);
+    if (error) { toast.error(error.message); setCancelOrder(null); return; }
+    toast.success('Pedido cancelado' + (cancelOrder.status === 'confirmado' ? ' y stock devuelto' : ''));
+    setCancelOrder(null);
     fetchOrders();
   };
 
@@ -137,7 +141,7 @@ const OrdersPage = () => {
                       <Button size="sm" variant="ghost" className="text-success" onClick={() => setBillingOrder(o)}><CreditCard className="h-3 w-3" /></Button>
                     )}
                     {(o.status === 'pendiente' || o.status === 'confirmado') && (
-                      <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleCancel(o)}><XCircle className="h-3 w-3" /></Button>
+                      <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setCancelOrder(o)}><XCircle className="h-3 w-3" /></Button>
                     )}
                   </TableCell>
                 </TableRow>
@@ -195,6 +199,25 @@ const OrdersPage = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!cancelOrder} onOpenChange={() => setCancelOrder(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Cancelar este pedido?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Mesa <strong>#{cancelOrder?.tables?.number}</strong> — {cancelOrder?.client_name}
+              {cancelOrder?.status === 'confirmado' && '. El stock será devuelto automáticamente.'}
+              {' '}Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>No, volver</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmCancel} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Sí, cancelar pedido
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
