@@ -130,10 +130,26 @@ const NewOrder = () => {
         }).eq('id', existingOrder.id);
         if (updErr) throw updErr;
 
+        // Deduct stock using RPC-style atomic decrement
         for (const item of cart) {
-          await supabase.from('products').update({
-            stock_quantity: item.product.stock_quantity - item.quantity,
-          }).eq('id', item.product.id);
+          const { data: current } = await supabase
+            .from('products')
+            .select('stock_quantity')
+            .eq('id', item.product.id)
+            .single();
+          if (current) {
+            await supabase.from('products').update({
+              stock_quantity: current.stock_quantity - item.quantity,
+            }).eq('id', item.product.id);
+
+            // Record inventory movement
+            await supabase.from('inventory_movements').insert({
+              product_id: item.product.id,
+              quantity_change: -item.quantity,
+              reason: `Pedido ${existingOrder.id} (adición)`,
+              created_by: user.id,
+            });
+          }
         }
 
         toast.success('¡Productos agregados al pedido!');
