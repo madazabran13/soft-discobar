@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuthStore } from '@/stores/authStore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -7,9 +8,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, ArrowDownCircle, ArrowUpCircle, FileSpreadsheet } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Search, ArrowDownCircle, ArrowUpCircle, FileSpreadsheet, PlusCircle, MinusCircle, Loader2 } from 'lucide-react';
 import { SortableHeader, useSortableData } from '@/components/SortableHeader';
 import { PaginationControls, usePagination } from '@/components/PaginationControls';
+import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 
 interface Movement {
@@ -36,6 +40,7 @@ function getDateRange(period: FilterPeriod): { start: string; end: string } {
 }
 
 const InventoryPage = () => {
+  const { user } = useAuthStore();
   const [movements, setMovements] = useState<Movement[]>([]);
   const [period, setPeriod] = useState<FilterPeriod>('week');
   const [startDate, setStartDate] = useState(() => {
@@ -44,6 +49,20 @@ const InventoryPage = () => {
   });
   const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [search, setSearch] = useState('');
+
+  // Manual adjustment state
+  const [adjustOpen, setAdjustOpen] = useState(false);
+  const [adjustType, setAdjustType] = useState<'add' | 'remove'>('add');
+  const [products, setProducts] = useState<{ id: string; name: string; stock_quantity: number }[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState('');
+  const [adjustQty, setAdjustQty] = useState('');
+  const [adjustReason, setAdjustReason] = useState('');
+  const [adjustSubmitting, setAdjustSubmitting] = useState(false);
+
+  const fetchProducts = async () => {
+    const { data } = await supabase.from('products').select('id, name, stock_quantity').order('name');
+    if (data) setProducts(data);
+  };
 
   const fetchMovements = async (s: string, e: string) => {
     const { data } = await supabase
@@ -64,11 +83,60 @@ const InventoryPage = () => {
     } else {
       fetchMovements(startDate, endDate);
     }
+    fetchProducts();
   }, [period]);
 
   useEffect(() => {
     if (period === 'custom') fetchMovements(startDate, endDate);
   }, [startDate, endDate]);
+
+  const handleAdjust = async () => {
+    if (!selectedProduct || !adjustQty || !adjustReason.trim()) {
+      toast.error('Completa todos los campos');
+      return;
+    }
+    const qty = parseInt(adjustQty);
+    if (isNaN(qty) || qty <= 0) { toast.error('Cantidad inválida'); return; }
+
+    const product = products.find(p => p.id === selectedProduct);
+    if (adjustType === 'remove' && product && qty > product.stock_quantity) {
+      toast.error(`Stock insuficiente. Disponible: ${product.stock_quantity}`);
+      return;
+    }
+
+    setAdjustSubmitting(true);
+    try {
+      const change = adjustType === 'add' ? qty : -qty;
+
+      const { error: updErr } = await supabase.from('products')
+        .update({ stock_quantity: (product?.stock_quantity || 0) + change })
+        .eq('id', selectedProduct);
+      if (updErr) throw updErr;
+
+      const { error: movErr } = await supabase.from('inventory_movements').insert({
+        product_id: selectedProduct,
+        quantity_change: change,
+        reason: `Ajuste manual: ${adjustReason.trim()}`,
+        created_by: user?.id,
+      });
+      if (movErr) throw movErr;
+
+      toast.success('Ajuste realizado');
+      setAdjustOpen(false);
+      setSelectedProduct('');
+      setAdjustQty('');
+      setAdjustReason('');
+
+      // Refresh
+      const { start, end } = period === 'custom' ? { start: startDate, end: endDate } : getDateRange(period);
+      fetchMovements(start, end);
+      fetchProducts();
+    } catch (err: any) {
+      toast.error(err.message || 'Error al ajustar');
+    } finally {
+      setAdjustSubmitting(false);
+    }
+  };
 
   const filtered = movements.filter(m =>
     (m.products?.name || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -105,7 +173,80 @@ const InventoryPage = () => {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Historial de Inventario</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Historial de Inventario</h1>
+        <Dialog open={adjustOpen} onOpenChange={setAdjustOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-2">
+              <PlusCircle className="h-4 w-4" /> Ajuste Manual
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Ajuste Manual de Inventario</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-2">
+              <div className="flex gap-2">
+                <Button
+                  variant={adjustType === 'add' ? 'default' : 'outline'}
+                  className={`flex-1 gap-2 ${adjustType === 'add' ? 'bg-success hover:bg-success/90 text-success-foreground' : ''}`}
+                  onClick={() => setAdjustType('add')}
+                >
+                  <PlusCircle className="h-4 w-4" /> Entrada
+                </Button>
+                <Button
+                  variant={adjustType === 'remove' ? 'default' : 'outline'}
+                  className={`flex-1 gap-2 ${adjustType === 'remove' ? 'bg-destructive hover:bg-destructive/90' : ''}`}
+                  onClick={() => setAdjustType('remove')}
+                >
+                  <MinusCircle className="h-4 w-4" /> Salida
+                </Button>
+              </div>
+              <div>
+                <Label>Producto</Label>
+                <Select value={selectedProduct} onValueChange={setSelectedProduct}>
+                  <SelectTrigger className="bg-secondary/50"><SelectValue placeholder="Seleccionar producto" /></SelectTrigger>
+                  <SelectContent>
+                    {products.map(p => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name} (Stock: {p.stock_quantity})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Cantidad</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={adjustQty}
+                  onChange={e => setAdjustQty(e.target.value)}
+                  placeholder="Ej: 10"
+                  className="bg-secondary/50"
+                />
+              </div>
+              <div>
+                <Label>Razón del ajuste</Label>
+                <Textarea
+                  value={adjustReason}
+                  onChange={e => setAdjustReason(e.target.value)}
+                  placeholder="Ej: Reposición de proveedor, merma, corrección..."
+                  className="bg-secondary/50"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button variant="outline">Cancelar</Button>
+              </DialogClose>
+              <Button onClick={handleAdjust} disabled={adjustSubmitting}>
+                {adjustSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Confirmar Ajuste'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
 
       {/* Summary cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
