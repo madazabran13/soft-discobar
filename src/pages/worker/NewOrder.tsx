@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthStore } from '@/stores/authStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -182,6 +183,24 @@ const NewOrder = () => {
         await supabase.from('tables').update({ status: 'ocupada' }).eq('id', tableId);
 
         toast.success('¡Pedido confirmado!');
+      }
+
+      // Check stock levels after order and warn worker
+      const threshold = useSettingsStore.getState().lowStockThreshold;
+      const productIds = cart.map(i => i.product.id);
+      const { data: updatedProducts } = await supabase
+        .from('products')
+        .select('name, stock_quantity')
+        .in('id', productIds);
+
+      if (updatedProducts) {
+        for (const p of updatedProducts) {
+          if (p.stock_quantity <= 0) {
+            toast.error(`🚫 Sin stock: ${p.name}`, { description: 'Se ha agotado completamente.', duration: 10000 });
+          } else if (p.stock_quantity <= threshold) {
+            toast.warning(`⚠️ Stock bajo: ${p.name}`, { description: `Quedan solo ${p.stock_quantity} unidades.`, duration: 8000 });
+          }
+        }
       }
 
       navigate('/worker');
