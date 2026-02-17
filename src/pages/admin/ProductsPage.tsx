@@ -9,9 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, Trash2, Edit, Package, Search } from 'lucide-react';
+import { Plus, Trash2, Edit, Package, Search, AlertTriangle } from 'lucide-react';
 import { SortableHeader, useSortableData } from '@/components/SortableHeader';
 import { PaginationControls, usePagination } from '@/components/PaginationControls';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 interface Product {
   id: string;
@@ -37,6 +38,10 @@ const ProductsPage = () => {
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [form, setForm] = useState({ name: '', description: '', price: '', stock_quantity: '', category_id: '' });
   const [search, setSearch] = useState('');
+  const lowStockThreshold = useSettingsStore((s) => s.lowStockThreshold);
+
+  const outOfStock = products.filter(p => p.stock_quantity <= 0);
+  const lowStock = products.filter(p => p.stock_quantity > 0 && p.stock_quantity <= lowStockThreshold);
 
   const fetchProducts = async () => {
     const { data } = await supabase.from('products').select('*, categories(name)').order('name');
@@ -109,6 +114,26 @@ const ProductsPage = () => {
 
   return (
     <div className="space-y-6">
+      {/* Stock Alert Banners */}
+      {outOfStock.length > 0 && (
+        <div className="flex items-center gap-3 rounded-lg border border-destructive/50 bg-destructive/10 p-3">
+          <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-destructive">Productos agotados ({outOfStock.length})</p>
+            <p className="text-xs text-muted-foreground">{outOfStock.map(p => p.name).join(', ')}</p>
+          </div>
+        </div>
+      )}
+      {lowStock.length > 0 && (
+        <div className="flex items-center gap-3 rounded-lg border border-warning/50 bg-warning/10 p-3">
+          <AlertTriangle className="h-5 w-5 text-warning shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-warning">Stock bajo ({lowStock.length})</p>
+            <p className="text-xs text-muted-foreground">{lowStock.map(p => `${p.name} (${p.stock_quantity})`).join(', ')}</p>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Productos</h1>
         <Dialog open={open} onOpenChange={(o) => { if (!o) closeDialog(); else setOpen(true); }}>
@@ -175,7 +200,7 @@ const ProductsPage = () => {
                   <TableCell><Badge variant="outline">{p.categories?.name || p.category}</Badge></TableCell>
                   <TableCell className="text-right font-medium">${p.price.toFixed(2)}</TableCell>
                   <TableCell className="text-right">
-                    <Badge className={p.stock_quantity > 10 ? 'bg-success/20 text-success' : p.stock_quantity > 0 ? 'bg-warning/20 text-warning' : 'bg-destructive/20 text-destructive'}>
+                    <Badge className={p.stock_quantity > lowStockThreshold ? 'bg-success/20 text-success' : p.stock_quantity > 0 ? 'bg-warning/20 text-warning' : 'bg-destructive/20 text-destructive'}>
                       {p.stock_quantity}
                     </Badge>
                   </TableCell>
