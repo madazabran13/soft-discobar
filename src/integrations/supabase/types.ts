@@ -62,6 +62,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "inventory_movements_created_by_profiles_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "inventory_movements_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
