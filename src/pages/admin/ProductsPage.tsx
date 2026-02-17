@@ -9,10 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, Trash2, Edit, Package, Search, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, Edit, Package, Search, AlertTriangle, FileSpreadsheet } from 'lucide-react';
 import { SortableHeader, useSortableData } from '@/components/SortableHeader';
 import { PaginationControls, usePagination } from '@/components/PaginationControls';
 import { useSettingsStore } from '@/stores/settingsStore';
+import * as XLSX from 'xlsx';
 
 interface Product {
   id: string;
@@ -112,6 +113,24 @@ const ProductsPage = () => {
     setOpen(true);
   };
 
+  const exportInventoryExcel = () => {
+    const getStatus = (qty: number) => qty <= 0 ? '🔴 Agotado' : qty <= lowStockThreshold ? '🟡 Stock bajo' : '🟢 Normal';
+    const wsData = [
+      ['Producto', 'Categoría', 'Precio', 'Stock', 'Estado'],
+      ...sorted.map(p => [
+        p.name,
+        p.categories?.name || p.category,
+        p.price,
+        p.stock_quantity,
+        getStatus(p.stock_quantity),
+      ]),
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Inventario');
+    XLSX.writeFile(wb, `inventario_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
   return (
     <div className="space-y-6">
       {/* Stock Alert Banners */}
@@ -136,10 +155,14 @@ const ProductsPage = () => {
 
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Productos</h1>
-        <Dialog open={open} onOpenChange={(o) => { if (!o) closeDialog(); else setOpen(true); }}>
-          <DialogTrigger asChild>
-            <Button className="gradient-primary gap-2"><Plus className="h-4 w-4" /> Nuevo Producto</Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <Button variant="outline" className="gap-2" onClick={exportInventoryExcel}>
+            <FileSpreadsheet className="h-4 w-4" /> Exportar
+          </Button>
+          <Dialog open={open} onOpenChange={(o) => { if (!o) closeDialog(); else setOpen(true); }}>
+            <DialogTrigger asChild>
+              <Button className="gradient-primary gap-2"><Plus className="h-4 w-4" /> Nuevo Producto</Button>
+            </DialogTrigger>
           <DialogContent className="glass">
             <DialogHeader><DialogTitle>{editProduct ? 'Editar' : 'Nuevo'} Producto</DialogTitle></DialogHeader>
             <div className="space-y-4">
@@ -164,6 +187,7 @@ const ProductsPage = () => {
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <div className="relative max-w-sm">
