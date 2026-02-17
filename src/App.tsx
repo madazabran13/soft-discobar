@@ -21,6 +21,7 @@ import CategoriesPage from './pages/admin/CategoriesPage';
 import UsersPage from './pages/admin/UsersPage';
 import SalesPage from './pages/admin/SalesPage';
 import SettingsPage from './pages/admin/SettingsPage';
+import InventoryPage from './pages/admin/InventoryPage';
 import WorkerTables from './pages/worker/WorkerTables';
 import NewOrder from './pages/worker/NewOrder';
 import OrderHistory from './pages/worker/OrderHistory';
@@ -63,6 +64,7 @@ const AppContent = () => {
         <Route path="categorias" element={<CategoriesPage />} />
         <Route path="usuarios" element={<UsersPage />} />
         <Route path="ventas" element={<SalesPage />} />
+        <Route path="inventario" element={<InventoryPage />} />
         <Route path="configuracion" element={<SettingsPage />} />
       </Route>
 
