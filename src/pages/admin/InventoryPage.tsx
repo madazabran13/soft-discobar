@@ -65,12 +65,16 @@ const InventoryPage = () => {
   };
 
   const fetchMovements = async (s: string, e: string) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('inventory_movements')
-      .select('*, products(name), profiles:created_by(full_name)')
+      .select('*, products!inventory_movements_product_id_fkey(name), profiles:profiles!inventory_movements_created_by_fkey(full_name)')
       .gte('created_at', s)
       .lte('created_at', e + 'T23:59:59')
       .order('created_at', { ascending: false });
+    if (error) {
+      console.error('Error fetching movements:', error);
+      toast.error('Error al cargar movimientos');
+    }
     if (data) setMovements(data as any);
   };
 
