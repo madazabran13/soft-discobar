@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuthStore } from '@/stores/authStore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,6 +34,7 @@ interface Category {
 }
 
 const ProductsPage = () => {
+  const { user } = useAuthStore();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [open, setOpen] = useState(false);
@@ -78,25 +80,60 @@ const ProductsPage = () => {
   const handleSave = async () => {
     if (!form.name.trim()) { toast.error('Nombre requerido'); return; }
     const catName = categories.find(c => c.id === form.category_id)?.name || 'General';
+    const newStock = parseInt(form.stock_quantity) || 0;
     const payload = {
       name: form.name,
       description: form.description,
       price: parseFloat(form.price) || 0,
-      stock_quantity: parseInt(form.stock_quantity) || 0,
+      stock_quantity: newStock,
       category: catName,
       category_id: form.category_id || null,
     };
     if (editProduct) {
       const { error } = await supabase.from('products').update(payload).eq('id', editProduct.id);
-      if (error) toast.error(error.message); else { toast.success('Producto actualizado'); fetchProducts(); }
+      if (error) { toast.error(error.message); return; }
+
+      // Record stock change if different
+      const diff = newStock - editProduct.stock_quantity;
+      if (diff !== 0) {
+        await supabase.from('inventory_movements').insert({
+          product_id: editProduct.id,
+          quantity_change: diff,
+          reason: `Ajuste desde productos: ${diff > 0 ? 'aumento' : 'reducción'} de stock`,
+          created_by: user?.id,
+        });
+      }
+      toast.success('Producto actualizado');
+      fetchProducts();
     } else {
-      const { error } = await supabase.from('products').insert(payload);
-      if (error) toast.error(error.message); else { toast.success('Producto creado'); fetchProducts(); }
+      const { data: newProduct, error } = await supabase.from('products').insert(payload).select().single();
+      if (error) { toast.error(error.message); return; }
+
+      // Record initial stock as inventory entry
+      if (newStock > 0 && newProduct) {
+        await supabase.from('inventory_movements').insert({
+          product_id: newProduct.id,
+          quantity_change: newStock,
+          reason: 'Stock inicial al crear producto',
+          created_by: user?.id,
+        });
+      }
+      toast.success('Producto creado');
+      fetchProducts();
     }
     closeDialog();
   };
 
   const handleDelete = async (id: string) => {
+    const product = products.find(p => p.id === id);
+    if (product && product.stock_quantity > 0) {
+      await supabase.from('inventory_movements').insert({
+        product_id: id,
+        quantity_change: -product.stock_quantity,
+        reason: `Producto eliminado: ${product.name}`,
+        created_by: user?.id,
+      });
+    }
     const { error } = await supabase.from('products').delete().eq('id', id);
     if (error) toast.error(error.message); else { toast.success('Producto eliminado'); fetchProducts(); }
   };
