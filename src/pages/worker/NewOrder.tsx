@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import { formatCOP } from '@/lib/formatCurrency';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthStore } from '@/stores/authStore';
@@ -267,7 +268,7 @@ const NewOrder = () => {
               onClick={() => setCartOpen(!cartOpen)}
             >
               <ShoppingCart className="h-4 w-4" />
-              <span className="ml-1.5 font-bold">${total.toFixed(2)}</span>
+              <span className="ml-1.5 font-bold">{formatCOP(total)}</span>
               <span className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full gradient-primary text-[10px] font-bold text-primary-foreground">
                 {cartCount}
               </span>
@@ -339,7 +340,7 @@ const NewOrder = () => {
             ))}
           </div>
           <p className="text-xs text-right mt-1 font-medium text-primary">
-            Subtotal: ${existingDetails.reduce((s, d) => s + d.subtotal, 0).toFixed(2)}
+            Subtotal: {formatCOP(existingDetails.reduce((s, d) => s + d.subtotal, 0))}
           </p>
         </div>
       )}
@@ -363,7 +364,7 @@ const NewOrder = () => {
                   )}
                   <p className="font-medium text-sm leading-tight line-clamp-2">{p.name}</p>
                   <div className="flex items-end justify-between mt-auto pt-1">
-                    <span className="text-lg font-bold text-primary">${p.price.toFixed(2)}</span>
+                    <span className="text-lg font-bold text-primary">{formatCOP(p.price)}</span>
                     <span className={`text-[10px] ${getAvailableStock(p) - getCartQty(p.id) <= 0 ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
                       Stock: {getAvailableStock(p) - getCartQty(p.id)}
                     </span>
@@ -408,7 +409,7 @@ const NewOrder = () => {
                       <Plus className="h-3 w-3" />
                     </Button>
                   </div>
-                  <span className="w-14 text-right text-xs font-medium">${(i.product.price * i.quantity).toFixed(2)}</span>
+                  <span className="w-16 text-right text-xs font-medium">{formatCOP(i.product.price * i.quantity)}</span>
                   <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive shrink-0" onClick={(e) => { e.stopPropagation(); removeFromCart(i.product.id); }}>
                     <Trash2 className="h-3 w-3" />
                   </Button>
@@ -422,7 +423,7 @@ const NewOrder = () => {
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <>
-                {existingOrder ? 'Agregar al Pedido' : 'Confirmar Pedido'} — ${total.toFixed(2)}
+                {existingOrder ? 'Agregar al Pedido' : 'Confirmar Pedido'} — {formatCOP(total)}
               </>
             )}
           </Button>

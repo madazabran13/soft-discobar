@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { formatCOP } from '@/lib/formatCurrency';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -134,7 +135,7 @@ const OrdersPage = () => {
                   <TableCell>{o.client_name}</TableCell>
                   <TableCell>{o.profiles?.full_name || '—'}</TableCell>
                   <TableCell><Badge className={statusColors[o.status]}>{o.status}</Badge></TableCell>
-                  <TableCell className="text-right font-medium">${Number(o.total_amount).toFixed(2)}</TableCell>
+                  <TableCell className="text-right font-medium">{formatCOP(Number(o.total_amount))}</TableCell>
                   <TableCell className="text-right space-x-1">
                     <Button size="sm" variant="ghost" onClick={() => viewDetails(o)}><Eye className="h-3 w-3" /></Button>
                     {o.status === 'confirmado' && (
@@ -167,13 +168,13 @@ const OrdersPage = () => {
                   <TableRow key={d.id} className="border-border">
                     <TableCell>{d.products?.name}</TableCell>
                     <TableCell className="text-right">{d.quantity}</TableCell>
-                    <TableCell className="text-right">${Number(d.unit_price).toFixed(2)}</TableCell>
-                    <TableCell className="text-right">${Number(d.subtotal).toFixed(2)}</TableCell>
+                    <TableCell className="text-right">{formatCOP(Number(d.unit_price))}</TableCell>
+                    <TableCell className="text-right">{formatCOP(Number(d.subtotal))}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
-            <p className="text-right text-lg font-bold">Total: ${Number(selectedOrder?.total_amount || 0).toFixed(2)}</p>
+            <p className="text-right text-lg font-bold">Total: {formatCOP(Number(selectedOrder?.total_amount || 0))}</p>
           </div>
         </DialogContent>
       </Dialog>
@@ -183,7 +184,7 @@ const OrdersPage = () => {
           <DialogHeader><DialogTitle>Facturar Pedido</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <p>Mesa <strong>#{billingOrder?.tables?.number}</strong> — {billingOrder?.client_name}</p>
-            <p className="text-2xl font-bold">Total: ${Number(billingOrder?.total_amount || 0).toFixed(2)}</p>
+            <p className="text-2xl font-bold">Total: {formatCOP(Number(billingOrder?.total_amount || 0))}</p>
             <div>
               <p className="text-sm font-medium mb-2">Método de Pago</p>
               <Select value={paymentMethod} onValueChange={setPaymentMethod}>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { formatCOP } from '@/lib/formatCurrency';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
@@ -87,7 +88,7 @@ const SalesPage = () => {
     doc.text('Reporte de Ventas', 14, 22);
     doc.setFontSize(10);
     doc.text(`Periodo: ${startDate} — ${endDate}`, 14, 30);
-    doc.text(`Total: $${totalRevenue.toFixed(2)} | ${filtered.length} transacciones`, 14, 36);
+    doc.text(`Total: ${formatCOP(totalRevenue)} | ${filtered.length} transacciones`, 14, 36);
     autoTable(doc, {
       startY: 42,
       head: [['Fecha', 'Mesa', 'Cliente', 'Método', 'Procesado por', 'Monto']],
@@ -97,7 +98,7 @@ const SalesPage = () => {
         s.orders?.client_name || '—',
         paymentLabel[s.payment_method] || s.payment_method,
         s.profiles?.full_name || '—',
-        `$${Number(s.amount).toFixed(2)}`,
+        formatCOP(Number(s.amount)),
       ]),
       styles: { fontSize: 8 },
       headStyles: { fillColor: [100, 0, 200] },
@@ -163,7 +164,7 @@ const SalesPage = () => {
           <DollarSign className="h-5 w-5 text-success" />
         </CardHeader>
         <CardContent>
-          <p className="text-3xl font-bold text-success">${totalRevenue.toFixed(2)}</p>
+          <p className="text-3xl font-bold text-success">{formatCOP(totalRevenue)}</p>
           <p className="text-xs text-muted-foreground">{filtered.length} transacciones</p>
         </CardContent>
       </Card>
@@ -189,7 +190,7 @@ const SalesPage = () => {
                   <TableCell>{s.orders?.client_name}</TableCell>
                   <TableCell><Badge variant="outline">{paymentLabel[s.payment_method] || s.payment_method}</Badge></TableCell>
                   <TableCell>{s.profiles?.full_name || '—'}</TableCell>
-                  <TableCell className="text-right font-medium">${Number(s.amount).toFixed(2)}</TableCell>
+                  <TableCell className="text-right font-medium">{formatCOP(Number(s.amount))}</TableCell>
                 </TableRow>
               ))}
               {paged.length === 0 && (
