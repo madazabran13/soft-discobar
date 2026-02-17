@@ -2,11 +2,11 @@ import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/stores/authStore';
-
-const LOW_STOCK_THRESHOLD = 10;
+import { useSettingsStore } from '@/stores/settingsStore';
 
 export const useOrderNotifications = () => {
   const { role } = useAuthStore();
+  const lowStockThreshold = useSettingsStore((s) => s.lowStockThreshold);
 
   useEffect(() => {
     if (role !== 'admin') return;
@@ -37,13 +37,13 @@ export const useOrderNotifications = () => {
 
           if (product.stock_quantity <= 0 && oldProduct.stock_quantity > 0) {
             toast.error(`🚫 Sin stock: ${product.name}`, {
-              description: `El producto se ha agotado completamente.`,
+              description: 'El producto se ha agotado completamente.',
               duration: 15000,
             });
           } else if (
-            product.stock_quantity <= LOW_STOCK_THRESHOLD &&
+            product.stock_quantity <= lowStockThreshold &&
             product.stock_quantity > 0 &&
-            oldProduct.stock_quantity > LOW_STOCK_THRESHOLD
+            oldProduct.stock_quantity > lowStockThreshold
           ) {
             toast.warning(`⚠️ Stock bajo: ${product.name}`, {
               description: `Quedan solo ${product.stock_quantity} unidades.`,
@@ -58,5 +58,5 @@ export const useOrderNotifications = () => {
       supabase.removeChannel(ordersChannel);
       supabase.removeChannel(stockChannel);
     };
-  }, [role]);
+  }, [role, lowStockThreshold]);
 };

@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { UtensilsCrossed, Package, Receipt, DollarSign } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { UtensilsCrossed, Package, Receipt, DollarSign, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useSettingsStore } from '@/stores/settingsStore';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
 } from 'recharts';
+
+interface StockAlert { name: string; stock_quantity: number }
 
 interface Stats {
   totalTables: number;
@@ -36,19 +40,24 @@ const Dashboard = () => {
   const [stats, setStats] = useState<Stats>({ totalTables: 0, occupiedTables: 0, totalProducts: 0, todayOrders: 0, todayRevenue: 0 });
   const [dailySales, setDailySales] = useState<DailySale[]>([]);
   const [paymentBreakdown, setPaymentBreakdown] = useState<PaymentBreakdown[]>([]);
+  const [stockAlerts, setStockAlerts] = useState<StockAlert[]>([]);
+  const lowStockThreshold = useSettingsStore((s) => s.lowStockThreshold);
 
   useEffect(() => {
     const fetchAll = async () => {
       const today = new Date().toISOString().split('T')[0];
       const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
 
-      const [tables, products, orders, salesToday, salesWeek] = await Promise.all([
+      const [tables, products, orders, salesToday, salesWeek, lowStockProducts] = await Promise.all([
         supabase.from('tables').select('status'),
         supabase.from('products').select('id', { count: 'exact', head: true }),
         supabase.from('orders').select('id', { count: 'exact', head: true }).gte('created_at', today),
         supabase.from('sales').select('amount').gte('created_at', today),
         supabase.from('sales').select('amount, created_at, payment_method').gte('created_at', sevenDaysAgo),
+        supabase.from('products').select('name, stock_quantity').lte('stock_quantity', lowStockThreshold).order('stock_quantity'),
       ]);
+
+      setStockAlerts(lowStockProducts.data || []);
 
       setStats({
         totalTables: tables.data?.length || 0,
@@ -84,7 +93,7 @@ const Dashboard = () => {
     };
 
     fetchAll();
-  }, []);
+  }, [lowStockThreshold]);
 
   const cards = [
     { label: 'Mesas Ocupadas', value: `${stats.occupiedTables}/${stats.totalTables}`, icon: UtensilsCrossed, color: 'text-primary' },
@@ -111,6 +120,33 @@ const Dashboard = () => {
           </Card>
         ))}
       </div>
+
+      {/* Stock Alerts */}
+      {stockAlerts.length > 0 && (
+        <Card className="glass border-warning/30">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <AlertTriangle className="h-4 w-4 text-warning" />
+              Alertas de Inventario
+              <Badge variant="outline" className="ml-auto bg-warning/10 text-warning border-warning/30">
+                {stockAlerts.length} producto{stockAlerts.length > 1 ? 's' : ''}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {stockAlerts.map((p) => (
+                <Badge
+                  key={p.name}
+                  className={p.stock_quantity <= 0 ? 'bg-destructive/20 text-destructive' : 'bg-warning/20 text-warning'}
+                >
+                  {p.name}: {p.stock_quantity <= 0 ? 'Agotado' : `${p.stock_quantity} uds`}
+                </Badge>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Charts */}
       <div className="grid gap-4 lg:grid-cols-2">
