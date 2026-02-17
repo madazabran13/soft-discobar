@@ -23,6 +23,13 @@ interface CartItem {
   quantity: number;
 }
 
+interface ExistingOrderDetail {
+  quantity: number;
+  unit_price: number;
+  subtotal: number;
+  product: { id: string; name: string; price: number };
+}
+
 const NewOrder = () => {
   const [searchParams] = useSearchParams();
   const tableId = searchParams.get('table');
@@ -35,14 +42,38 @@ const NewOrder = () => {
   const [clientName, setClientName] = useState('');
   const [search, setSearch] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [existingOrder, setExistingOrder] = useState<{ id: string; client_name: string } | null>(null);
+  const [existingDetails, setExistingDetails] = useState<ExistingOrderDetail[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetch = async () => {
-      const { data } = await supabase.from('products').select('*').eq('is_active', true).gt('stock_quantity', 0).order('category, name' as any);
-      if (data) setProducts(data as Product[]);
+    const init = async () => {
+      if (!tableId) { setLoading(false); return; }
+
+      const [productsRes, orderRes] = await Promise.all([
+        supabase.from('products').select('*').eq('is_active', true).gt('stock_quantity', 0),
+        supabase.from('orders').select('id, client_name').eq('table_id', tableId).in('status', ['confirmado', 'pendiente']).maybeSingle(),
+      ]);
+
+      if (productsRes.data) setProducts(productsRes.data as Product[]);
+
+      if (orderRes.data) {
+        setExistingOrder(orderRes.data);
+        setClientName(orderRes.data.client_name);
+
+        // Fetch existing order details
+        const { data: details } = await supabase
+          .from('order_details')
+          .select('quantity, unit_price, subtotal, product:products(id, name, price)')
+          .eq('order_id', orderRes.data.id);
+
+        if (details) setExistingDetails(details as unknown as ExistingOrderDetail[]);
+      }
+
+      setLoading(false);
     };
-    fetch();
-  }, []);
+    init();
+  }, [tableId]);
 
   const addToCart = (product: Product) => {
     setCart(prev => {
@@ -78,32 +109,67 @@ const NewOrder = () => {
 
     setSubmitting(true);
     try {
-      // Create order
-      const { data: order, error: orderErr } = await supabase.from('orders').insert({
-        table_id: tableId,
-        worker_id: user.id,
-        client_name: clientName.trim(),
-        status: 'confirmado',
-        total_amount: total,
-      }).select().single();
+      if (existingOrder) {
+        // Add items to existing order
+        const details = cart.map(i => ({
+          order_id: existingOrder.id,
+          product_id: i.product.id,
+          quantity: i.quantity,
+          unit_price: i.product.price,
+          subtotal: i.product.price * i.quantity,
+        }));
+        const { error: detErr } = await supabase.from('order_details').insert(details);
+        if (detErr) throw detErr;
 
-      if (orderErr) throw orderErr;
+        // Update order total
+        const newTotal = total + existingDetails.reduce((s, d) => s + d.subtotal, 0);
+        const { error: updErr } = await supabase.from('orders').update({
+          total_amount: newTotal,
+          // Temporarily set to pendiente then back to confirmado to trigger stock deduction
+        }).eq('id', existingOrder.id);
+        if (updErr) throw updErr;
 
-      // Create order details
-      const details = cart.map(i => ({
-        order_id: order.id,
-        product_id: i.product.id,
-        quantity: i.quantity,
-        unit_price: i.product.price,
-        subtotal: i.product.price * i.quantity,
-      }));
-      const { error: detErr } = await supabase.from('order_details').insert(details);
-      if (detErr) throw detErr;
+        // Manually deduct stock for new items (since trigger only fires on pendiente→confirmado)
+        for (const item of cart) {
+          await supabase.from('products').update({
+            stock_quantity: item.product.stock_quantity - item.quantity,
+          }).eq('id', item.product.id);
+        }
 
-      // Mark table as occupied
-      await supabase.from('tables').update({ status: 'ocupada' }).eq('id', tableId);
+        toast.success('¡Productos agregados al pedido!');
+      } else {
+        // Create new order as 'pendiente' first
+        const { data: order, error: orderErr } = await supabase.from('orders').insert({
+          table_id: tableId,
+          worker_id: user.id,
+          client_name: clientName.trim(),
+          status: 'pendiente',
+          total_amount: total,
+        }).select().single();
 
-      toast.success('¡Pedido confirmado!');
+        if (orderErr) throw orderErr;
+
+        // Create order details
+        const details = cart.map(i => ({
+          order_id: order.id,
+          product_id: i.product.id,
+          quantity: i.quantity,
+          unit_price: i.product.price,
+          subtotal: i.product.price * i.quantity,
+        }));
+        const { error: detErr } = await supabase.from('order_details').insert(details);
+        if (detErr) throw detErr;
+
+        // Update to 'confirmado' to trigger stock deduction via DB trigger
+        const { error: statusErr } = await supabase.from('orders').update({ status: 'confirmado' }).eq('id', order.id);
+        if (statusErr) throw statusErr;
+
+        // Mark table as occupied
+        await supabase.from('tables').update({ status: 'ocupada' }).eq('id', tableId);
+
+        toast.success('¡Pedido confirmado!');
+      }
+
       navigate('/worker');
     } catch (err: any) {
       toast.error(err.message || 'Error al crear pedido');
@@ -112,10 +178,12 @@ const NewOrder = () => {
     }
   };
 
-  const filtered = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()) || p.category.toLowerCase().includes(search.toLowerCase()));
+  const filtered = products.filter(p =>
+    p.name.toLowerCase().includes(search.toLowerCase()) ||
+    (p.category && p.category.toLowerCase().includes(search.toLowerCase()))
+  );
 
-  // Group by category
-  const categories = [...new Set(filtered.map(p => p.category))];
+  const categories = [...new Set(filtered.map(p => p.category).filter(Boolean))];
 
   if (!tableId) {
     return (
@@ -126,13 +194,54 @@ const NewOrder = () => {
     );
   }
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4 pb-20">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Nuevo Pedido — Mesa #{tableNum}</h1>
+        <h1 className="text-xl font-bold">
+          {existingOrder ? 'Agregar a Pedido' : 'Nuevo Pedido'} — Mesa #{tableNum}
+        </h1>
       </div>
 
-      <div><Label>Cliente</Label><Input value={clientName} onChange={e => setClientName(e.target.value)} placeholder="Nombre del cliente" className="bg-secondary/50" /></div>
+      <div>
+        <Label>Cliente</Label>
+        <Input
+          value={clientName}
+          onChange={e => setClientName(e.target.value)}
+          placeholder="Nombre del cliente"
+          className="bg-secondary/50"
+          disabled={!!existingOrder}
+        />
+      </div>
+
+      {/* Existing order details */}
+      {existingDetails.length > 0 && (
+        <Card className="glass">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground">Productos anteriores</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1">
+            {existingDetails.map((d, idx) => (
+              <div key={idx} className="flex items-center justify-between text-sm">
+                <span className="flex-1 truncate">{d.product?.name}</span>
+                <span className="text-muted-foreground mr-2">x{d.quantity}</span>
+                <span className="font-medium">${d.subtotal.toFixed(2)}</span>
+              </div>
+            ))}
+            <div className="border-t border-border pt-1 flex justify-between text-sm font-bold">
+              <span>Subtotal anterior</span>
+              <span className="text-primary">${existingDetails.reduce((s, d) => s + d.subtotal, 0).toFixed(2)}</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Input placeholder="Buscar producto..." value={search} onChange={e => setSearch(e.target.value)} className="bg-secondary/50" />
 
@@ -162,7 +271,9 @@ const NewOrder = () => {
       {cart.length > 0 && (
         <Card className="glass neon-border fixed bottom-16 left-4 right-4 z-30 sm:relative sm:bottom-auto sm:left-auto sm:right-auto">
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base"><ShoppingCart className="h-4 w-4" /> Pedido ({cart.length})</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ShoppingCart className="h-4 w-4" /> Nuevo pedido ({cart.length})
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {cart.map(i => (
@@ -178,11 +289,11 @@ const NewOrder = () => {
               </div>
             ))}
             <div className="flex items-center justify-between border-t border-border pt-2">
-              <span className="font-bold">Total</span>
+              <span className="font-bold">Total nuevos</span>
               <span className="text-lg font-bold text-primary">${total.toFixed(2)}</span>
             </div>
             <Button onClick={handleSubmit} className="w-full gradient-primary" disabled={submitting}>
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Confirmar Pedido'}
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : existingOrder ? 'Agregar al Pedido' : 'Confirmar Pedido'}
             </Button>
           </CardContent>
         </Card>
