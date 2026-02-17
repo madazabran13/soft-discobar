@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { formatCOP } from '@/lib/formatCurrency';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/stores/authStore';
@@ -23,7 +24,7 @@ export const useOrderNotifications = () => {
           (payload) => {
             const order = payload.new as any;
             toast.info('🆕 Nuevo pedido creado', {
-              description: `Mesa asignada — Total: $${Number(order.total_amount).toFixed(2)}`,
+              description: `Mesa asignada — Total: ${formatCOP(Number(order.total_amount))}`,
               duration: 8000,
             });
           }

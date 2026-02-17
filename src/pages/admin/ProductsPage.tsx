@@ -14,6 +14,7 @@ import { Plus, Trash2, Edit, Package, Search, AlertTriangle, FileSpreadsheet } f
 import { SortableHeader, useSortableData } from '@/components/SortableHeader';
 import { PaginationControls, usePagination } from '@/components/PaginationControls';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { formatCOP } from '@/lib/formatCurrency';
 import * as XLSX from 'xlsx';
 
 interface Product {
@@ -259,7 +260,7 @@ const ProductsPage = () => {
                     </div>
                   </TableCell>
                   <TableCell><Badge variant="outline">{p.categories?.name || p.category}</Badge></TableCell>
-                  <TableCell className="text-right font-medium">${p.price.toFixed(2)}</TableCell>
+                  <TableCell className="text-right font-medium">{formatCOP(p.price)}</TableCell>
                   <TableCell className="text-right">
                     <Badge className={p.stock_quantity > lowStockThreshold ? 'bg-success/20 text-success' : p.stock_quantity > 0 ? 'bg-warning/20 text-warning' : 'bg-destructive/20 text-destructive'}>
                       {p.stock_quantity}

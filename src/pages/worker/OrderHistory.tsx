@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { formatCOP } from '@/lib/formatCurrency';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuthStore } from '@/stores/authStore';
 import { Card, CardContent } from '@/components/ui/card';
@@ -64,7 +65,7 @@ const OrderHistory = () => {
             </div>
             <div className="flex items-center gap-3">
               <div className="text-right">
-                <p className="font-bold">${Number(o.total_amount).toFixed(2)}</p>
+                <p className="font-bold">{formatCOP(Number(o.total_amount))}</p>
                 <Badge className={statusColors[o.status]}>{o.status}</Badge>
               </div>
               {(o.status === 'pendiente' || o.status === 'confirmado') && (

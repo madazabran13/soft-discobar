@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { UtensilsCrossed, Package, Receipt, DollarSign, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatCOP } from '@/lib/formatCurrency';
 import { useSettingsStore } from '@/stores/settingsStore';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -99,7 +100,7 @@ const Dashboard = () => {
     { label: 'Mesas Ocupadas', value: `${stats.occupiedTables}/${stats.totalTables}`, icon: UtensilsCrossed, color: 'text-primary' },
     { label: 'Productos', value: stats.totalProducts, icon: Package, color: 'text-accent' },
     { label: 'Pedidos Hoy', value: stats.todayOrders, icon: Receipt, color: 'text-success' },
-    { label: 'Ventas Hoy', value: `$${stats.todayRevenue.toFixed(2)}`, icon: DollarSign, color: 'text-warning' },
+    { label: 'Ventas Hoy', value: formatCOP(stats.todayRevenue), icon: DollarSign, color: 'text-warning' },
   ];
 
   return (
@@ -168,7 +169,7 @@ const Dashboard = () => {
                     borderRadius: '8px',
                     color: 'hsl(0, 0%, 95%)',
                   }}
-                  formatter={(value: number) => [`$${value.toFixed(2)}`, 'Total']}
+                  formatter={(value: number) => [formatCOP(value), 'Total']}
                 />
                 <Bar dataKey="total" fill="hsl(280, 100%, 65%)" radius={[6, 6, 0, 0]} />
               </BarChart>
@@ -206,7 +207,7 @@ const Dashboard = () => {
                     borderRadius: '8px',
                     color: 'hsl(0, 0%, 95%)',
                   }}
-                  formatter={(value: number) => [`$${value.toFixed(2)}`, 'Total']}
+                  formatter={(value: number) => [formatCOP(value), 'Total']}
                 />
                 <Legend wrapperStyle={{ color: 'hsl(0, 0%, 95%)' }} />
               </PieChart>
