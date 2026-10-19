@@ -227,6 +227,10 @@ export type Database = {
           email: string | null
           full_name: string
           id: string
+          is_active: boolean
+          phone: string | null
+          saas_role: Database["public"]["Enums"]["saas_role"]
+          tenant_id: string | null
           updated_at: string
         }
         Insert: {
@@ -235,6 +239,10 @@ export type Database = {
           email?: string | null
           full_name?: string
           id: string
+          is_active?: boolean
+          phone?: string | null
+          saas_role?: Database["public"]["Enums"]["saas_role"]
+          tenant_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -243,6 +251,10 @@ export type Database = {
           email?: string | null
           full_name?: string
           id?: string
+          is_active?: boolean
+          phone?: string | null
+          saas_role?: Database["public"]["Enums"]["saas_role"]
+          tenant_id?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -355,6 +367,7 @@ export type Database = {
         Returns: undefined
       }
       get_my_role: { Args: never; Returns: string }
+      get_my_tenant_id: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -362,11 +375,17 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_tenant_role: {
+        Args: { required_role: Database["public"]["Enums"]["saas_role"] }
+        Returns: boolean
+      }
+      is_superadmin: { Args: never; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "trabajador"
       order_status: "pendiente" | "confirmado" | "facturado" | "cancelado"
       payment_method: "efectivo" | "transferencia" | "tarjeta"
+      saas_role: "superadmin" | "admin" | "trabajador" | "viewer"
       table_status: "libre" | "ocupada" | "facturacion"
     }
     CompositeTypes: {
@@ -383,12 +402,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -412,11 +431,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -437,11 +456,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -462,11 +481,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -479,11 +498,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -498,6 +517,7 @@ export const Constants = {
       app_role: ["admin", "trabajador"],
       order_status: ["pendiente", "confirmado", "facturado", "cancelado"],
       payment_method: ["efectivo", "transferencia", "tarjeta"],
+      saas_role: ["superadmin", "admin", "trabajador", "viewer"],
       table_status: ["libre", "ocupada", "facturacion"],
     },
   },
