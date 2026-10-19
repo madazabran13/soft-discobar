@@ -15,7 +15,7 @@ export const useOrderNotifications = () => {
     const channels: ReturnType<typeof supabase.channel>[] = [];
 
     // Admin-only: new order notifications
-    if (role === 'admin') {
+    if (role === 'admin' || role === 'superadmin') {
       const ordersChannel = supabase
         .channel('admin-order-notifications')
         .on(
