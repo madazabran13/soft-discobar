@@ -28,7 +28,7 @@ const Login = () => {
       // Wait briefly for role to load then redirect
       const checkRole = () => {
         const state = useAuthStore.getState();
-        if (state.role === 'admin') navigate('/admin');
+        if (state.role === 'admin' || state.role === 'superadmin') navigate('/admin');
         else if (state.role === 'trabajador') navigate('/worker');
         else setTimeout(checkRole, 200);
       };

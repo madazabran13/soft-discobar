@@ -2,17 +2,20 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { Wine, UtensilsCrossed, Receipt, ClipboardList, LogOut, UserCog } from 'lucide-react';
 
 const navItems = [
-  { path: '/worker', label: 'Mesas', icon: UtensilsCrossed },
-  { path: '/worker/pedido', label: 'Nuevo Pedido', icon: Receipt },
-  { path: '/worker/historial', label: 'Historial', icon: ClipboardList },
-  { path: '/worker/perfil', label: 'Perfil', icon: UserCog },
+  { path: '/worker', label: 'Mesas', icon: UtensilsCrossed, module: 'mesas' },
+  { path: '/worker/pedido', label: 'Nuevo Pedido', icon: Receipt, module: 'pedidos' },
+  { path: '/worker/historial', label: 'Historial', icon: ClipboardList, module: 'pedidos' },
+  { path: '/worker/perfil', label: 'Perfil', icon: UserCog, module: '' },
 ];
 
 export const WorkerLayout = () => {
-  const { signOut, profile } = useAuthStore();
+  const { signOut, profile, tenantName, canAccess } = useAuthStore();
+  useAuthStore((s) => s.modules);
+  const items = navItems.filter((i) => !i.module || canAccess(i.module));
   const location = useLocation();
 
   return (
@@ -22,9 +25,10 @@ export const WorkerLayout = () => {
         <div className="flex h-8 w-8 items-center justify-center rounded-lg gradient-primary">
           <Wine className="h-4 w-4 text-primary-foreground" />
         </div>
-        <span className="text-lg font-bold neon-text">DiscoBar</span>
+        <span className="text-lg font-bold neon-text">{tenantName || 'COTICO'}</span>
         <div className="ml-auto flex items-center gap-2">
           <span className="hidden text-sm text-muted-foreground sm:inline">{profile?.full_name}</span>
+          <ThemeToggle />
           <Button variant="ghost" size="icon" onClick={signOut} className="text-muted-foreground hover:text-destructive">
             <LogOut className="h-4 w-4" />
           </Button>
@@ -38,7 +42,7 @@ export const WorkerLayout = () => {
 
       {/* Bottom nav */}
       <nav className="flex border-t border-border bg-card">
-        {navItems.map((item) => {
+        {items.map((item) => {
           const isActive = location.pathname === item.path;
           return (
             <Link
