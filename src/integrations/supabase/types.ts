@@ -382,7 +382,7 @@ export type Database = {
       is_superadmin: { Args: never; Returns: boolean }
     }
     Enums: {
-      app_role: "admin" | "trabajador"
+      app_role: "admin" | "trabajador" | "superadmin"
       order_status: "pendiente" | "confirmado" | "facturado" | "cancelado"
       payment_method: "efectivo" | "transferencia" | "tarjeta"
       saas_role: "superadmin" | "admin" | "trabajador" | "viewer"
@@ -514,7 +514,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "trabajador"],
+      app_role: ["admin", "trabajador", "superadmin"],
       order_status: ["pendiente", "confirmado", "facturado", "cancelado"],
       payment_method: ["efectivo", "transferencia", "tarjeta"],
       saas_role: ["superadmin", "admin", "trabajador", "viewer"],
