@@ -5,24 +5,30 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
   Wine, LayoutDashboard, UtensilsCrossed, Package, Users,
-  Receipt, BarChart3, LogOut, Menu, X, ChevronRight, Tag, Settings, History
+  Receipt, BarChart3, LogOut, Menu, X, ChevronRight, Tag, Settings, History, Building2
 } from 'lucide-react';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 const navItems = [
-  { path: '/admin', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/admin/mesas', label: 'Mesas', icon: UtensilsCrossed },
-  { path: '/admin/pedidos', label: 'Pedidos', icon: Receipt },
-  { path: '/admin/productos', label: 'Productos', icon: Package },
-  { path: '/admin/categorias', label: 'Categorías', icon: Tag },
-  { path: '/admin/usuarios', label: 'Usuarios', icon: Users },
-  { path: '/admin/ventas', label: 'Ventas', icon: BarChart3 },
-  { path: '/admin/inventario', label: 'Inventario', icon: History },
-  { path: '/admin/configuracion', label: 'Configuración', icon: Settings },
+  { path: '/admin', label: 'Dashboard', icon: LayoutDashboard, module: 'dashboard' },
+  { path: '/admin/mesas', label: 'Mesas', module: 'mesas', icon: UtensilsCrossed },
+  { path: '/admin/pedidos', label: 'Pedidos', module: 'pedidos', icon: Receipt },
+  { path: '/admin/productos', label: 'Productos', module: 'productos', icon: Package },
+  { path: '/admin/categorias', label: 'Categorías', module: 'categorias', icon: Tag },
+  { path: '/admin/usuarios', label: 'Usuarios', module: 'usuarios', icon: Users },
+  { path: '/admin/ventas', label: 'Ventas', module: 'ventas', icon: BarChart3 },
+  { path: '/admin/inventario', label: 'Inventario', module: 'inventario', icon: History },
+  { path: '/admin/configuracion', label: 'Configuración', module: 'configuracion', icon: Settings },
 ];
 
 export const AdminLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { signOut, profile } = useAuthStore();
+  const { signOut, profile, role, tenantName, canAccess } = useAuthStore();
+  useAuthStore((s) => s.modules);
+  const items = [
+    ...navItems.filter((i) => canAccess(i.module)),
+    ...(role === 'superadmin' ? [{ path: '/admin/plataforma', label: 'Plataforma', icon: Building2, module: 'plataforma' }] : []),
+  ];
   const location = useLocation();
 
   return (
@@ -43,8 +49,8 @@ export const AdminLayout = () => {
               <Wine className="h-5 w-5 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-sidebar-foreground neon-text">DiscoBar</h1>
-              <p className="text-xs text-muted-foreground">Admin Panel</p>
+              <h1 className="text-lg font-bold text-sidebar-foreground neon-text">{tenantName || 'COTICO'}</h1>
+              <p className="text-xs text-muted-foreground">{role === 'superadmin' ? 'Superadministrador' : 'Administración'}</p>
             </div>
             <Button variant="ghost" size="icon" className="ml-auto lg:hidden" onClick={() => setSidebarOpen(false)}>
               <X className="h-4 w-4" />
@@ -52,7 +58,7 @@ export const AdminLayout = () => {
           </div>
 
           <nav className="flex-1 space-y-1 p-3">
-            {navItems.map((item) => {
+            {items.map((item) => {
               const isActive = location.pathname === item.path;
               return (
                 <Link
@@ -93,8 +99,9 @@ export const AdminLayout = () => {
             <Menu className="h-5 w-5" />
           </Button>
           <h2 className="text-lg font-semibold">
-            {navItems.find(n => n.path === location.pathname)?.label || 'Dashboard'}
+            {items.find(n => n.path === location.pathname)?.label || 'Dashboard'}
           </h2>
+          <div className="ml-auto"><ThemeToggle /></div>
         </header>
         <main className="flex-1 overflow-auto p-4 lg:p-6">
           <Outlet />
