@@ -268,6 +268,109 @@ export type Database = {
           },
         ]
       }
+      payment_methods: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          tenant_id?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_methods_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          amount: number
+          change_amount: number
+          created_at: string
+          created_by: string | null
+          id: string
+          idempotency_key: string | null
+          order_id: string
+          payment_method_id: string
+          received_amount: number | null
+          tenant_id: string
+        }
+        Insert: {
+          amount?: number
+          change_amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          idempotency_key?: string | null
+          order_id: string
+          payment_method_id: string
+          received_amount?: number | null
+          tenant_id?: string
+        }
+        Update: {
+          amount?: number
+          change_amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          idempotency_key?: string | null
+          order_id?: string
+          payment_method_id?: string
+          received_amount?: number | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_payment_method_id_fkey"
+            columns: ["payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "payment_methods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           category: string | null
@@ -579,6 +682,16 @@ export type Database = {
       }
       is_superadmin: { Args: never; Returns: boolean }
       module_enabled: { Args: { _key: string }; Returns: boolean }
+      register_payment: {
+        Args: {
+          p_amount: number
+          p_idempotency_key?: string
+          p_order_id: string
+          p_payment_method_id: string
+          p_received_amount?: number
+        }
+        Returns: Json
+      }
     }
     Enums: {
       app_role: "admin" | "trabajador" | "superadmin"
