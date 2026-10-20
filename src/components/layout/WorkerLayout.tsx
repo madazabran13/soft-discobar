@@ -3,7 +3,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { Wine, UtensilsCrossed, Receipt, ClipboardList, LogOut, UserCog } from 'lucide-react';
+import { Wine, UtensilsCrossed, ClipboardList, LogOut, UserCog } from 'lucide-react';
 
 const navItems = [
   { path: '/worker', label: 'Mesas', icon: UtensilsCrossed, module: 'mesas' },
