@@ -1,6 +1,7 @@
 # Roadmap COTICO
 
 ## En curso
+- [ ] Filtros del historial por fecha, trabajador, estado y medio de pago; detalle de pagos parciales en admin y trabajador
 - [x] Ocultar superadmin del módulo de usuarios del admin (filtro en UsersPage + política RLS restrictiva)
 - [ ] Fase 2: división de cuentas y pagos parciales/mixtos (migración + BillingDialog + SettingsPage listos; falta verificación end-to-end en preview)
 - [ ] Panel propio para superadmin (SuperadminDashboard + menú exclusivo creados; falta verificación visual)
