@@ -7,7 +7,6 @@ import { Wine, UtensilsCrossed, Receipt, ClipboardList, LogOut, UserCog } from '
 
 const navItems = [
   { path: '/worker', label: 'Mesas', icon: UtensilsCrossed, module: 'mesas' },
-  { path: '/worker/pedido', label: 'Nuevo Pedido', icon: Receipt, module: 'pedidos' },
   { path: '/worker/historial', label: 'Historial', icon: ClipboardList, module: 'pedidos' },
   { path: '/worker/perfil', label: 'Perfil', icon: UserCog, module: '' },
 ];
