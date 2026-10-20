@@ -34,7 +34,9 @@ const UsersPage = () => {
 
   useEffect(() => { fetchUsers(); }, []);
 
-  const filtered = users.filter(u =>
+  // Los superadministradores (cuentas de INGEMD SOLUTIONS) no se muestran ni se gestionan aquí
+  const visibleUsers = users.filter(u => !u.user_roles?.some(r => r.role === 'superadmin'));
+  const filtered = visibleUsers.filter(u =>
     (u.full_name || '').toLowerCase().includes(search.toLowerCase()) ||
     (u.email || '').toLowerCase().includes(search.toLowerCase())
   );
