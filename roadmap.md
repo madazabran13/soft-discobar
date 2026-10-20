@@ -1,7 +1,7 @@
 # Roadmap COTICO
 
 ## En curso
-- [ ] Ocultar superadmin del módulo de usuarios del admin (filtro en UsersPage listo; falta política RLS restrictiva)
+- [x] Ocultar superadmin del módulo de usuarios del admin (filtro en UsersPage + política RLS restrictiva)
 - [ ] Fase 2: división de cuentas y pagos parciales/mixtos (migración + BillingDialog + SettingsPage listos; falta verificación end-to-end en preview)
 - [ ] Panel propio para superadmin (SuperadminDashboard + menú exclusivo creados; falta verificación visual)
 
