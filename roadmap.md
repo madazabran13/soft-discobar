@@ -1,6 +1,7 @@
 # Roadmap COTICO
 
 ## En curso
+- [ ] Caja del administrador: resumen diario, efectivo contado, diferencia y cierres auditados por negocio
 - [x] Filtros del historial por fecha, trabajador, estado y medio de pago; detalle de pagos parciales en admin y trabajador (5 pruebas aprobadas)
 - [ ] Verificar filtros y desglose de pagos con una sesión real (bloqueado: Supabase externo sin sesión de prueba disponible)
 - [x] Ocultar superadmin del módulo de usuarios del admin (filtro en UsersPage + política RLS restrictiva)
