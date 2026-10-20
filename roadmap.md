@@ -1,8 +1,8 @@
 # Roadmap COTICO
 
 ## En curso
-- [ ] Fase 2: división de cuentas y pagos parciales/mixtos por mesa; registrar cada pago; liberar mesa solo cuando el saldo llegue a cero (migración aplicada; falta cablear BillingDialog en OrdersPage y verificar)
-- [ ] Panel propio para superadmin (hoy ve lo mismo que admin): dashboard de plataforma con negocios, módulos y usuarios por negocio
+- [ ] Fase 2: división de cuentas y pagos parciales/mixtos (migración + BillingDialog + SettingsPage listos; falta verificación end-to-end en preview)
+- [ ] Panel propio para superadmin (SuperadminDashboard + menú exclusivo creados; falta verificación visual)
 
 ## Pendiente (plan COTICO)
 - [ ] Fase 3: comprobantes 58/80mm con consecutivo y reimpresión sin duplicar venta
