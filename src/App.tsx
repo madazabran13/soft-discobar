@@ -9,6 +9,7 @@ import { ProtectedRoute, ModuleGuard } from '@/components/ProtectedRoute';
 import { ThemeProvider } from 'next-themes';
 import { ThemeSync } from '@/components/ThemeToggle';
 import PlatformPage from './pages/superadmin/PlatformPage';
+import SuperadminDashboard from './pages/superadmin/SuperadminDashboard';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { WorkerLayout } from '@/components/layout/WorkerLayout';
 import { useOrderNotifications } from '@/hooks/useOrderNotifications';
@@ -43,6 +44,12 @@ const AuthRedirect = () => {
   return <Navigate to="/login" replace />;
 };
 
+const AdminIndex = () => {
+  const { role } = useAuthStore();
+  if (role === 'superadmin') return <SuperadminDashboard />;
+  return <ModuleGuard moduleKey="dashboard"><Dashboard /></ModuleGuard>;
+};
+
 const AppContent = () => {
   const { initialize } = useAuthStore();
   useOrderNotifications();
@@ -60,7 +67,7 @@ const AppContent = () => {
 
       {/* Admin routes */}
       <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin', 'superadmin']}><AdminLayout /></ProtectedRoute>}>
-        <Route index element={<ModuleGuard moduleKey="dashboard"><Dashboard /></ModuleGuard>} />
+        <Route index element={<AdminIndex />} />
         <Route path="mesas" element={<ModuleGuard moduleKey="mesas"><TablesPage /></ModuleGuard>} />
         <Route path="pedidos" element={<ModuleGuard moduleKey="pedidos"><OrdersPage /></ModuleGuard>} />
         <Route path="productos" element={<ModuleGuard moduleKey="productos"><ProductsPage /></ModuleGuard>} />

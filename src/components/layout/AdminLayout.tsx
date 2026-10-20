@@ -9,6 +9,11 @@ import {
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
+const superadminNavItems = [
+  { path: '/admin', label: 'Panel Plataforma', icon: LayoutDashboard, module: 'plataforma' },
+  { path: '/admin/plataforma', label: 'Negocios y Módulos', icon: Building2, module: 'plataforma' },
+];
+
 const navItems = [
   { path: '/admin', label: 'Dashboard', icon: LayoutDashboard, module: 'dashboard' },
   { path: '/admin/mesas', label: 'Mesas', module: 'mesas', icon: UtensilsCrossed },
@@ -25,10 +30,9 @@ export const AdminLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { signOut, profile, role, tenantName, canAccess } = useAuthStore();
   useAuthStore((s) => s.modules);
-  const items = [
-    ...navItems.filter((i) => canAccess(i.module)),
-    ...(role === 'superadmin' ? [{ path: '/admin/plataforma', label: 'Plataforma', icon: Building2, module: 'plataforma' }] : []),
-  ];
+  const items = role === 'superadmin'
+    ? superadminNavItems
+    : navItems.filter((i) => canAccess(i.module));
   const location = useLocation();
 
   return (
