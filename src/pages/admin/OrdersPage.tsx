@@ -8,13 +8,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Eye, CreditCard, Search, XCircle } from 'lucide-react';
-import { useAuthStore } from '@/stores/authStore';
 import { SortableHeader, useSortableData } from '@/components/SortableHeader';
 import { PaginationControls, usePagination } from '@/components/PaginationControls';
 import BillingDialog from '@/components/BillingDialog';
+import OrderHistoryFilters from '@/components/OrderHistoryFilters';
+import OrderPaymentHistory from '@/components/OrderPaymentHistory';
+import { emptyHistoryFilters, matchesHistoryFilters, paymentSummary, paymentStatusLabels, type HistoryPayment } from '@/lib/orderHistory';
 
 interface Order {
   id: string;
@@ -26,6 +27,7 @@ interface Order {
   worker_id: string;
   tables?: { number: number; name: string };
   profiles?: { full_name: string };
+  payments?: HistoryPayment[];
 }
 
 interface OrderDetail {
@@ -50,34 +52,46 @@ const OrdersPage = () => {
   const [billingOrder, setBillingOrder] = useState<Order | null>(null);
   const [search, setSearch] = useState('');
   const [cancelOrder, setCancelOrder] = useState<Order | null>(null);
-  const { user } = useAuthStore();
+  const [filters, setFilters] = useState({ ...emptyHistoryFilters });
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   const fetchOrders = async () => {
-    const { data } = await supabase
+    const { data, error } = await (supabase as any)
       .from('orders')
-      .select('*, tables(number, name), profiles(full_name)')
+      .select('*, tables(number, name), profiles(full_name), payments(id, amount, received_amount, change_amount, created_at, payment_method_id, payment_methods(name))')
       .order('created_at', { ascending: false });
+    setLoading(false);
+    setLoadError(!!error);
+    if (error) { toast.error('No se pudo cargar el historial de pedidos'); return; }
     if (data) setOrders(data as any);
   };
 
   useEffect(() => {
     fetchOrders();
-    const ch = supabase.channel('orders-rt').on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => fetchOrders()).subscribe();
+    const ch = supabase.channel('orders-rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => fetchOrders())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, () => fetchOrders()).subscribe();
     return () => { supabase.removeChannel(ch); };
   }, []);
 
-  const filtered = orders.filter(o =>
+  const workers = Array.from(new Map(orders.map(o => [o.worker_id, { id: o.worker_id, name: o.profiles?.full_name || 'Trabajador no disponible' }])).values());
+  const methods = Array.from(new Map(orders.flatMap(o => (o.payments || []).map(p => [p.payment_method_id, { id: p.payment_method_id, name: p.payment_methods?.name || 'Medio no disponible' }] as const))).values());
+  const filtered = orders.filter(o => matchesHistoryFilters(o, filters) && (
     (o.client_name || '').toLowerCase().includes(search.toLowerCase()) ||
     (o.profiles?.full_name || '').toLowerCase().includes(search.toLowerCase()) ||
     o.status.toLowerCase().includes(search.toLowerCase()) ||
     String(o.tables?.number || '').includes(search)
-  );
+  ));
   const { sorted, sort, toggleSort } = useSortableData(filtered);
   const { paged, currentPage, totalItems, pageSize, setCurrentPage } = usePagination(sorted);
+  useEffect(() => { setCurrentPage(1); }, [filters, search, setCurrentPage]);
 
   const viewDetails = async (order: Order) => {
     setSelectedOrder(order);
-    const { data } = await supabase.from('order_details').select('*, products(name)').eq('order_id', order.id);
+    setDetails([]);
+    const { data, error } = await supabase.from('order_details').select('*, products(name)').eq('order_id', order.id);
+    if (error) toast.error('No se pudo cargar el detalle del pedido');
     if (data) setDetails(data as any);
   };
 
@@ -100,6 +114,9 @@ const OrdersPage = () => {
         <Input placeholder="Buscar pedido..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 bg-secondary/50" />
       </div>
 
+      <OrderHistoryFilters value={filters} onChange={setFilters} workers={workers} methods={methods} />
+      <p className="text-sm text-muted-foreground">{totalItems} pedidos encontrados</p>
+      {loadError && <div role="alert" className="flex items-center gap-3 text-destructive">No se pudo cargar el historial.<Button variant="outline" onClick={fetchOrders}>Reintentar</Button></div>}
       <Card className="glass overflow-hidden">
         <CardContent className="p-0">
           <Table>
@@ -119,10 +136,10 @@ const OrdersPage = () => {
                   <TableCell>#{o.tables?.number}</TableCell>
                   <TableCell>{o.client_name}</TableCell>
                   <TableCell>{o.profiles?.full_name || '—'}</TableCell>
-                  <TableCell><Badge className={statusColors[o.status]}>{o.status}</Badge></TableCell>
+                  <TableCell><Badge className={statusColors[o.status]}>{o.status}</Badge><p className="mt-1 text-xs text-muted-foreground">{paymentStatusLabels[paymentSummary(o).status]}</p></TableCell>
                   <TableCell className="text-right font-medium">{formatCOP(Number(o.total_amount))}</TableCell>
                   <TableCell className="text-right space-x-1">
-                    <Button size="sm" variant="ghost" onClick={() => viewDetails(o)}><Eye className="h-3 w-3" /></Button>
+                    <Button size="sm" variant="ghost" aria-label="Ver detalle del pedido" onClick={() => viewDetails(o)}><Eye className="h-3 w-3" /></Button>
                     {o.status === 'confirmado' && (
                       <Button size="sm" variant="ghost" className="text-success" onClick={() => setBillingOrder(o)}><CreditCard className="h-3 w-3" /></Button>
                     )}
@@ -133,7 +150,7 @@ const OrdersPage = () => {
                 </TableRow>
               ))}
               {paged.length === 0 && (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No hay pedidos</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">{loading ? 'Cargando pedidos…' : loadError ? 'Historial no disponible' : 'No hay pedidos que coincidan con los filtros'}</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
@@ -142,7 +159,7 @@ const OrdersPage = () => {
       </Card>
 
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
-        <DialogContent className="glass">
+        <DialogContent className="glass max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Detalle del Pedido</DialogTitle></DialogHeader>
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">Cliente: <span className="text-foreground">{selectedOrder?.client_name}</span></p>
@@ -160,6 +177,7 @@ const OrdersPage = () => {
               </TableBody>
             </Table>
             <p className="text-right text-lg font-bold">Total: {formatCOP(Number(selectedOrder?.total_amount || 0))}</p>
+            {selectedOrder && <OrderPaymentHistory order={orders.find(o => o.id === selectedOrder.id) || selectedOrder} />}
           </div>
         </DialogContent>
       </Dialog>
