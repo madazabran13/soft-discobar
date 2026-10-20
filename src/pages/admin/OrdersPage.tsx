@@ -14,6 +14,7 @@ import { Eye, CreditCard, Search, XCircle } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 import { SortableHeader, useSortableData } from '@/components/SortableHeader';
 import { PaginationControls, usePagination } from '@/components/PaginationControls';
+import BillingDialog from '@/components/BillingDialog';
 
 interface Order {
   id: string;
@@ -47,7 +48,6 @@ const OrdersPage = () => {
   const [details, setDetails] = useState<OrderDetail[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [billingOrder, setBillingOrder] = useState<Order | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<string>('efectivo');
   const [search, setSearch] = useState('');
   const [cancelOrder, setCancelOrder] = useState<Order | null>(null);
   const { user } = useAuthStore();
@@ -90,21 +90,6 @@ const OrdersPage = () => {
     fetchOrders();
   };
 
-  const handleBill = async () => {
-    if (!billingOrder || !user) return;
-    const { error: saleErr } = await supabase.from('sales').insert({
-      order_id: billingOrder.id,
-      amount: billingOrder.total_amount,
-      payment_method: paymentMethod as any,
-      processed_by: user.id,
-    });
-    if (saleErr) { toast.error(saleErr.message); return; }
-    await supabase.from('orders').update({ status: 'facturado' }).eq('id', billingOrder.id);
-    await supabase.from('tables').update({ status: 'libre' }).eq('id', billingOrder.table_id);
-    toast.success('Pedido facturado exitosamente');
-    setBillingOrder(null);
-    fetchOrders();
-  };
 
   return (
     <div className="space-y-6">
@@ -179,27 +164,11 @@ const OrdersPage = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!billingOrder} onOpenChange={() => setBillingOrder(null)}>
-        <DialogContent className="glass">
-          <DialogHeader><DialogTitle>Facturar Pedido</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <p>Mesa <strong>#{billingOrder?.tables?.number}</strong> — {billingOrder?.client_name}</p>
-            <p className="text-2xl font-bold">Total: {formatCOP(Number(billingOrder?.total_amount || 0))}</p>
-            <div>
-              <p className="text-sm font-medium mb-2">Método de Pago</p>
-              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                <SelectTrigger className="bg-secondary/50"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="efectivo">Efectivo</SelectItem>
-                  <SelectItem value="transferencia">Transferencia</SelectItem>
-                  <SelectItem value="tarjeta">Tarjeta</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <Button onClick={handleBill} className="w-full gradient-primary">Confirmar Facturación</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <BillingDialog
+        order={billingOrder}
+        onClose={() => setBillingOrder(null)}
+        onSettled={() => { setBillingOrder(null); fetchOrders(); }}
+      />
 
       <AlertDialog open={!!cancelOrder} onOpenChange={() => setCancelOrder(null)}>
         <AlertDialogContent>
